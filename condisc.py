@@ -53,7 +53,12 @@ iop = asarray([13.59844, 24.58741,
 sahacoeff = 1.30959e-5
 ioconvert = 11.6046
 xtol = 1e-5
-sigman = 1. # (in 1e-16 cm^2 units)
+sigman = 1. # (in 1e-16 cm^2 units; neutral collision cross-section)
+alpha = 0.1
+Pi2 = 1.
+Pi4 = 1.
+lame = 0.1 # mixing length parameter
+mass1 = 1.5
 
 # for k in arange(nel):
 #     print(el[k]+": Z="+str(abund[k])+"; IP="+str(iop[k])+"\n")
@@ -83,7 +88,7 @@ def allx(temp, n15, x):
     # calculates the abundances of individual elements
     xi=zeros(nel, dtype=double)
     for k in arange(nel):
-        xi=1./(1.+sahacoeff*x*n15/temp**1.5*exp(ioconvert * iop/temp)))
+        xi=1./(1.+sahacoeff*x*n15/temp**1.5*exp(ioconvert * iop/temp))
     z = (10.)**(abund-12.) # physical abundances with respect to hydrogen
     xchecksum = (z*xi).sum()
     print("total ionization fraction "+str(x)+" = "+str(xchecksum))
@@ -102,4 +107,46 @@ def condy(temp, n15):
 
     return o13
 #######################################################################
+# making a disc: opacity and S-curve
+def kappa_Kr(temp, n15):
+    return 1978.32*temp**(-3.5)*n15 # Kramers's opacity law for X=0.7, from wikipedia; to be replaced by OPAL
 
+def taufun(temp, n15, r9=1., mdot11=1.):
+    # estimates the optical depth for given central temperature and density
+    # ignores mu!
+    return 442.761*kappa_Kr(temp, n15)*mdot11*sqrt(mass1/r9**3)/temp/alpha
+
+def nc(temp, r9=1., mdot11=1.):
+    # provides nH in 1e15 units
+    return 3.35663e5 * mass1 * mdot11 /alpha/Pi2/temp**1.5/r9**3
+
+def tempfun(temp, r9=1., mdot11=1.):
+    # should be zero at proper Tc
+    tau = taufun(temp, nc(temp, r9=r9, mdot11=mdot11), r9=r9, mdot11=mdot11)
+    fluxratio = 5.678e-6*temp**4/mass1/mdot11*r9**3
+    csc = 9.58348e-06 * sqrt(temp) # speed of sound in light units
+    return fluxratio * (4.*Pi4/tau + lame * csc)-1.
+    
+def tempsolve(r9=1., mdot11=0.1):
+    '''
+    searches the optimal value of Tc
+    '''
+    
+    tc1=1. ; tc2=100. ; ttol=1e-3
+    f1=tempfun(tc1) ; f2=tempfun(tc2)
+    
+    while(abs(tc2/tc1-1.)>ttol):
+        tc=sqrt(tc1*tc2)
+        f=tempfun(tc, r9=r9, mdot11=mdot11)
+        if((f1*f)>0.):
+            tc1=tc
+            f1=f
+        else:
+            tc2=tc
+            f2=f
+        print("new T = "+str(tc))
+
+    return (tc1+tc2)/2.
+
+#########################################################################
+# 
