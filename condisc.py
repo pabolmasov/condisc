@@ -52,12 +52,13 @@ iop = asarray([13.59844, 24.58741,
 
 sahacoeff = 1.30959e-5
 ioconvert = 11.6046
-xtol = 1e-3
+xtol = 1e-5
+ttol = 1e-5
 sigman = 1. # (in 1e-16 cm^2 units; neutral collision cross-section)
 alpha = 0.1
 Pi2 = 1.
 Pi4 = 1.
-lame = 0.1 # mixing length parameter
+lame = 0.0 # mixing length parameter (set lame=0 for no convection)
 mass1 = 1.5
 
 xrenorm = ((10.)**(abund-12.)).sum()  # maximal concentration of neutral atoms with respect to nH
@@ -115,12 +116,16 @@ def condy(temp, n15, x):
 #######################################################################
 # making a disc: opacity and S-curve
 def kappa_Kr(temp, n15):
-    return 1978.32*temp**(-3.5)*n15 # Kramers's opacity law for X=0.7, from wikipedia; to be replaced by OPAL
+    return 1978.32*temp**(-3.5)*n15 # Kramers's opacity (cm^2/g) law for X=0.7, from wikipedia; to be replaced by OPAL
 
 def taufun(temp, n15, r9=1., mdot11=1.):
     # estimates the optical depth for given central temperature and density
     # ignores mu!
     return 442.761*kappa_Kr(temp, n15)*mdot11*sqrt(mass1/r9**3)/temp/alpha
+
+def sigfun(temp, n15, r9=1., mdot11=1.):
+    # surface density, g/cm^2
+    return 442.761*mdot11*sqrt(mass1/r9**3)/temp/alpha
 
 def nc(temp, r9=1., mdot11=1.):
     # provides nH in 1e15 units
@@ -138,7 +143,7 @@ def tempsolve(r9=1., mdot11=0.1):
     searches the optimal value of Tc
     '''
     
-    tc1=1. ; tc2=100. ; ttol=1e-3
+    tc1=0.1 ; tc2=100. 
     f1=tempfun(tc1) ; f2=tempfun(tc2)
     
     while(abs(tc2/tc1-1.)>ttol):
@@ -150,7 +155,7 @@ def tempsolve(r9=1., mdot11=0.1):
         else:
             tc2=tc
             f2=f
-        print("new T = "+str(tc))
+            print("new T = "+str(tc))
 
     return (tc1+tc2)/2.
 
@@ -209,5 +214,31 @@ def xicond():
     xscale('log')  ;  yscale('log')
     xlabel('$T$, kK')  ;  ylabel(r'$\omega, \,10^{13}{\rm \, s}^{-1}$')
     savefig('conde.eps')
+    close()
+    
+#######################################################################
+# disc model plots
+def scurve():
+    r9 = 1.0 # radius in 10^9 cm (fixed)
+    mdot1 = 0.001 ; mdot2 = 100. # 1e-11 Msun/yr units
+    nmdot=100
+    mdot = (mdot2 / mdot1)**(arange(nmdot, dtype=double)/double(nmdot)) * mdot1
+
+    temp = zeros(nmdot, dtype=double)
+    teff = zeros(nmdot, dtype=double)
+    sig = zeros(nmdot, dtype=double)
+    
+    for k in arange(nmdot):
+        temptmp = tempsolve(r9=r9, mdot11=mdot[k])
+        n15 = nc(temptmp, r9=r9, mdot11=mdot[k])
+        sig[k] = sigfun(temptmp, n15, r9=r9, mdot11=mdot[k])
+        temp[k] = temptmp
+        teff[k] = 1.15198e4 * (mass1 * mdot[k] / r9**3)**0.25
+        print("Teff = "+str(teff[k]))
+    clf()
+    plot(sig, teff, '.k')
+    xscale('log')  # ;  yscale('log')
+    ylabel(r'$T_{\rm eff}$, kK')  ;  xlabel(r'$\Sigma$, g\,cm$^{-2}$')
+    savefig('scurve.eps')
     close()
     
