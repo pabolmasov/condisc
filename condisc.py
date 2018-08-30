@@ -12,6 +12,8 @@ import numpy.random
 import os
 import os.path
 
+import opalreader as op
+
 #Uncomment the following if you want to use LaTeX in figures 
 rc('font',**{'family':'serif'})
 rc('mathtext',fontset='cm')
@@ -57,8 +59,8 @@ ttol = 1e-5
 sigman = 1. # (in 1e-16 cm^2 units; neutral collision cross-section)
 alpha = 0.1
 Pi2 = 1.
-Pi4 = 1.
-lame = 0.0 # mixing length parameter (set lame=0 for no convection)
+Pi4 = .5
+lame = 1.0 # mixing length parameter (set lame=0 for no convection)
 mass1 = 1.5
 
 xrenorm = ((10.)**(abund-12.)).sum()  # maximal concentration of neutral atoms with respect to nH
@@ -118,10 +120,24 @@ def condy(temp, n15, x):
 def kappa_Kr(temp, n15):
     return 1978.32*temp**(-3.5)*n15 # Kramers's opacity (cm^2/g) law for X=0.7, from wikipedia; to be replaced by OPAL
 
-def taufun(temp, n15, r9=1., mdot11=1.):
-    # estimates the optical depth for given central temperature and density
-    # ignores mu!
-    return 442.761*kappa_Kr(temp, n15)*mdot11*sqrt(mass1/r9**3)/temp/alpha
+def kappa_OPAL(temp, n15, kappafun):
+    '''
+    wrapper for opalreader's table; but kappafun needs to be defined first with op.opalread()
+    '''
+    lgT, lgR = op.lgTR(temp, n15)
+    return 10.**(kappafun(lgT, lgR))
+
+def taufun(temp, n15, r9=1., mdot11=1., opacity = None):
+    '''
+    estimates the optical depth for given central temperature and density
+    ignores mu!
+    "opacity " is the function that calculates the opacities from temp and n15
+    should be kappafun if we use OPAL tables; if None, Kramers approximation is taken
+    '''
+    if (opacity == None):
+        return 442.761*kappa_Kr(temp, n15)*mdot11*sqrt(mass1/r9**3)/temp/alpha
+    else:
+        return 442.761*kappa_OPAL(temp, n15, opacity)*mdot11*sqrt(mass1/r9**3)/temp/alpha
 
 def sigfun(temp, n15, r9=1., mdot11=1.):
     # surface density, g/cm^2
@@ -131,31 +147,33 @@ def nc(temp, r9=1., mdot11=1.):
     # provides nH in 1e15 units
     return 3.35663e5 * mass1 * mdot11 /alpha/Pi2/temp**1.5/r9**3
 
-def tempfun(temp, r9=1., mdot11=1.):
+def tempfun(temp, r9=1., mdot11=1., opacity = None):
     # should be zero at proper Tc
-    tau = taufun(temp, nc(temp, r9=r9, mdot11=mdot11), r9=r9, mdot11=mdot11)
+    tau = taufun(temp, nc(temp, r9=r9, mdot11=mdot11), r9=r9, mdot11=mdot11, opacity = opacity)
     fluxratio = 5.678e-6*temp**4/mass1/mdot11*r9**3
     csc = 9.58348e-06 * sqrt(temp) # speed of sound in light units
     return fluxratio * (4.*Pi4/tau + lame * csc)-1.
     
-def tempsolve(r9=1., mdot11=0.1):
+def tempsolve(r9=1., mdot11=0.1, opacity = None):
     '''
     searches the optimal value of Tc
+    "opacity " is the name of the function that calculates the opacities from temp and n15
+    should be kappa_OPAL if we use OPAL tables; if None, Kramers approximation is taken
     '''
     
     tc1=0.1 ; tc2=100. 
-    f1=tempfun(tc1) ; f2=tempfun(tc2)
+    f1=tempfun(tc1, opacity = opacity) ; f2=tempfun(tc2, opacity = opacity)
     
     while(abs(tc2/tc1-1.)>ttol):
         tc=sqrt(tc1*tc2)
-        f=tempfun(tc, r9=r9, mdot11=mdot11)
+        f=tempfun(tc, r9=r9, mdot11=mdot11, opacity = opacity)
         if((f1*f)>0.):
             tc1=tc
             f1=f
         else:
             tc2=tc
             f2=f
-            print("new T = "+str(tc))
+            #            print("new T = "+str(tc))
 
     return (tc1+tc2)/2.
 
@@ -219,17 +237,20 @@ def xicond():
 #######################################################################
 # disc model plots
 def scurve():
-    r9 = 1.0 # radius in 10^9 cm (fixed)
-    mdot1 = 0.001 ; mdot2 = 100. # 1e-11 Msun/yr units
+    r9 = 1. # radius in 10^9 cm (fixed)
+    mdot1 = 0.01 ; mdot2 = 10. # 1e-11 Msun/yr units
     nmdot=100
     mdot = (mdot2 / mdot1)**(arange(nmdot, dtype=double)/double(nmdot)) * mdot1
 
     temp = zeros(nmdot, dtype=double)
     teff = zeros(nmdot, dtype=double)
     sig = zeros(nmdot, dtype=double)
+
+    # linking an OPAL table
+    kappafun = op.opalread(infile='GN93hz.txt', tableno = 73)
     
     for k in arange(nmdot):
-        temptmp = tempsolve(r9=r9, mdot11=mdot[k])
+        temptmp = tempsolve(r9=r9, mdot11=mdot[k], opacity = kappafun)
         n15 = nc(temptmp, r9=r9, mdot11=mdot[k])
         sig[k] = sigfun(temptmp, n15, r9=r9, mdot11=mdot[k])
         temp[k] = temptmp
