@@ -52,13 +52,16 @@ iop = asarray([13.59844, 24.58741,
 
 sahacoeff = 1.30959e-5
 ioconvert = 11.6046
-xtol = 1e-5
+xtol = 1e-3
 sigman = 1. # (in 1e-16 cm^2 units; neutral collision cross-section)
 alpha = 0.1
 Pi2 = 1.
 Pi4 = 1.
 lame = 0.1 # mixing length parameter
 mass1 = 1.5
+
+xrenorm = ((10.)**(abund-12.)).sum()  # maximal concentration of neutral atoms with respect to nH
+print("X renormalization "+str(xrenorm))
 
 # for k in arange(nel):
 #     print(el[k]+": Z="+str(abund[k])+"; IP="+str(iop[k])+"\n")
@@ -77,9 +80,9 @@ def findiofr(temp, n15, xseed = 0.5):
     '''
     x1=0. ; x2=1.
     x=xseed
-    while(abs(x1/x2-1.)>xtol):
+    while((abs(x1/x2-1.)>xtol) & ((x1+x2)>1e-12)):
         x2 = abundfun(temp, n15, x1)
-        print("x = "+str(x1)+" = "+str(x2))
+        #        print("x = "+str(x1)+" = "+str(x2))
         x1 = abundfun(temp, n15, x2)
 
     return (x1+x2)/2.
@@ -91,21 +94,24 @@ def allx(temp, n15, x):
         xi=1./(1.+sahacoeff*x*n15/temp**1.5*exp(ioconvert * iop/temp))
     z = (10.)**(abund-12.) # physical abundances with respect to hydrogen
     xchecksum = (z*xi).sum()
+    print("T = "+str(temp)+"kK; n = "+str(n15*1e15)+" cm^{-3}")
     print("total ionization fraction "+str(x)+" = "+str(xchecksum))
     return xi
 
 ################################################################
-def condy(temp, n15):
+def condy(temp, n15, x):
     '''
     calculates conductivity as a function of temperature (in kK) and density (10^{15} cm^{-3})
     '''
 
     # cross-sections in 1e-16 cm^2 units
     sigmaC = 1e5 / temp**2
-    x = findiofr(temp, n15)
-    o13 = 20571.9 / sqrt(temp) * x/ (sigman * (1. - x) + sigmaC * x)
-
-    return o13
+    #    x = findiofr(temp, n15)
+    o13 = 20571.9 / sqrt(temp) * x/ (sigman * (xrenorm - x) + sigmaC * x)
+    o13_C = 20571.9 / sqrt(temp) / sigmaC
+    o13_n = 20571.9 / sqrt(temp) * x / (xrenorm-x) / sigman
+    
+    return o13, o13_C, o13_n 
 #######################################################################
 # making a disc: opacity and S-curve
 def kappa_Kr(temp, n15):
@@ -149,4 +155,59 @@ def tempsolve(r9=1., mdot11=0.1):
     return (tc1+tc2)/2.
 
 #########################################################################
-# 
+# making the pictures
+def xicond():
+    '''
+    calculates ionization fractions and conductivities for different nH and temperatures
+    '''
+    nar = asarray([1., 1e3, 1e6])
+    nn = size(nar)
+    temp1 = 50. ; temp2 = .5 ; ntemp=10
+    temp = (temp2/temp1)**(arange(ntemp, dtype=double)/double(ntemp))*temp1
+
+    x = zeros([ntemp, nn], dtype=double)
+    xH = zeros([ntemp, nn], dtype=double)
+    xK = zeros([ntemp, nn], dtype=double)
+    con = zeros([ntemp, nn], dtype=double)
+    con_C = zeros([ntemp, nn], dtype=double)
+    con_n = zeros([ntemp, nn], dtype=double)
+    
+    for kn in arange(nn):
+        for kt in arange(ntemp):
+            if(kt>0):
+                xtmp = findiofr(temp[kt], nar[kn], xseed=xtmp)
+            else:
+                xtmp = findiofr(temp[kt], nar[kn], xseed=1.)
+            x[kt,kn] = xtmp
+            xels = allx(temp[kt], nar[kn], xtmp)
+            xH[kt,kn] = xels[0] # ionization fraction of hydrogen
+            xK[kt,kn] = xels[18] # ionization fraction of potassium
+            contmp = condy(temp[kt], nar[kn], xtmp)
+            con[kt,kn] = contmp[0] ; con_C[kt,kn] = contmp[1] ; con_n[kt,kn]=contmp[2]
+
+    colorsequence = ['b', 'k', 'r', 'g', 'm']
+
+    # ionization fraction plot:
+    clf()
+    for kn in arange(nn):
+        plot(temp, x[:, kn], '-', color=colorsequence[kn])
+        plot(temp, xK[:, kn]*(10.)**(abund[18]-12.), ':', color=colorsequence[kn])
+        plot(temp, xH[:, kn], '--', color=colorsequence[kn])
+    xscale('log')  ;  yscale('log')
+    ylim(1e-12, 1.5)
+    xlabel('$T$, kK')  ;  ylabel(r'$n_{\rm e} / n_{\rm H}$')
+    savefig('iofrele.eps')
+    close()
+    
+    # conductivity plot:
+    clf()
+    for kn in arange(nn):
+        plot(temp, con[:, kn], '-', linewidth = kn+1, color='k')
+        plot(temp, con_C[:, kn], '--', linewidth = kn+1, color='b')
+        plot(temp, con_n[:, kn], ':', linewidth = kn+1, color='r')
+    ylim(1e-7, 1e3)
+    xscale('log')  ;  yscale('log')
+    xlabel('$T$, kK')  ;  ylabel(r'$\omega, \,10^{13}{\rm \, s}^{-1}$')
+    savefig('conde.eps')
+    close()
+    
