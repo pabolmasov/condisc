@@ -1,0 +1,50 @@
+from scipy.integrate import *
+from scipy.interpolate import *
+import matplotlib
+from matplotlib import rc
+from matplotlib import axes
+from numpy import *
+from pylab import *
+from scipy.integrate import cumtrapz
+
+import numpy.random
+# import time
+import os
+import os.path
+
+#Uncomment the following if you want to use LaTeX in figures 
+rc('font',**{'family':'serif'})
+rc('mathtext',fontset='cm')
+rc('mathtext',rm='stix')
+rc('text', usetex=True)
+# #add amsmath to the preamble
+matplotlib.rcParams['text.latex.preamble']=[r"\usepackage{amssymb,amsmath}"] 
+
+close('all')
+ioff()
+
+def lgTR(temp, n15):
+    '''
+    converts temperature in kK and density in 1e15cm-3 to lg(T,K) and lg(R) variables
+    '''
+    lgT = log10(temp)+3.
+    lgR = -3.*log10(temp)+log10(n15)+0.223398
+    return lgT, lgR
+
+def opalread(infile='GN93hz.txt', tableno = 73):
+    '''
+    reading an ascii opal file
+    '''
+
+    nheader = 240 # number of header lines
+    nentry = 77 # the number of lines per table
+    nt = 70 # number of temperature values
+    nr = 19 # number of R values
+    
+    temprow = 240 + nentry * tableno
+
+    for k in arange(temprow-1):
+        l=fin.readline()
+        print(l)
+
+    

@@ -85,3 +85,23 @@ def opalread(infile='GN93hz.txt', tableno = 73):
     kappafun = interp2d(lgT, lgR, kappa, kind='linear', bounds_error = False)
     return kappafun
 
+def bookplot(rho=1e-8):
+
+    t1=0.5 ; t2=500. # kK
+    nt=100
+    temp = (t2/t1)**(arange(nt)/double(nt-1))*t1
+    n15 = 5.97863e8 * rho
+    
+    lgt, lgr = lgTR(temp, n15)
+    kappafun = opalread()
+
+    kappa = zeros(nt, dtype=double)
+    
+    for k in arange(nt):
+        kappa[k] = (10.)**kappafun(lgt[k], lgr[k])
+    
+    clf()
+    plot(temp, kappa, '-k')
+    xscale('log') ; yscale('log')
+    savefig('bookplot.png')
+    close()
