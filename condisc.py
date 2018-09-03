@@ -58,12 +58,14 @@ xtol = 1e-5
 ttol = 1e-5
 sigman = 1. # (in 1e-16 cm^2 units; neutral collision cross-section)
 alpha = 0.1
-Pi1 = 5.
+# we use the formalism of Ketsaris&Shakura 1998
+Pi1 = 2.
 Pi2 = 0.5
 Pi3 = 1.
 Pi4 = 0.4
 lame = 0.0 # mixing length parameter (set lame=0 for no convection)
-mass1 = 1.2
+mass1 = 1.5
+b12 = 8.
 
 xrenorm = ((10.)**(abund-12.)).sum()  # maximal concentration of neutral atoms with respect to nH
 print("X renormalization "+str(xrenorm))
@@ -184,6 +186,9 @@ def nc(temp, r9=1., mdot11=1.):
     return 167831. /alpha / temp**1.5 *mdot11*mass1/r9**3 * (Pi3/Pi2/sqrt(Pi1))
     #    return 3.35663e5 * mass1 * mdot11 /alpha/Pi2/temp**1.5/r9**3
 
+def htor(temp, r9=1.):
+    return 0.000788621*sqrt(Pi1*temp*r9/mass1)
+    
 def tempfun(temp, r9=1., mdot11=1., opacity = None):
     # should be zero at proper Tc
     n15 = nc(temp, r9=r9, mdot11=mdot11)
@@ -215,6 +220,12 @@ def tempsolve(r9=1., mdot11=0.1, opacity = None):
             #            print("new T = "+str(tc))
 
     return (tc1+tc2)/2.
+
+def prno(omega, temp, r):
+    '''
+    calculates Prandtl number, given conductivity (in 1e13/s units), temperature in kK, and radius in 1e9
+    '''
+    return 1.05599e4 * omega * r**1.5/sqrt(mass1) * alpha/Pi3 * temp
 
 #########################################################################
 # making the pictures
@@ -259,7 +270,7 @@ def xicond():
     xscale('log')  ;  yscale('log')
     ylim(1e-12, 1.5)
     xlabel('$T$, kK', fontsize=18)
-    ylabel(r'$n_{\rm e} / n_{\rm H}$', fontsize=20)
+    ylabel(r'$n_{\rm e} / n_{\rm H}$', fontsize=18)
     plt.tick_params(labelsize=16, length=3, width=1., which='minor')
     plt.tick_params(labelsize=16, length=3, width=1., which='major')
     fig.set_size_inches(5, 4)
@@ -289,7 +300,7 @@ def xicond():
 def scurve():
     r9 = 1. # radius in 10^9 cm (fixed)
     # corotation radius is 3.5\times 10^9 cm for GRO10
-    mdot1 = 2. ; mdot2 = 2e-4 # 1e-11 Msun/yr units
+    mdot1 = 0.1*r9**3. ; mdot2 = 1e-4*r9**3. # 1e-11 Msun/yr units
     nmdot=30
     mdot = (mdot2 / mdot1)**(arange(nmdot, dtype=double)/double(nmdot)) * mdot1
 
@@ -302,7 +313,7 @@ def scurve():
     xstore=0.5
     
     # linking an OPAL table
-    kappafun = op.opalread(infile='GN93hz.txt', tableno = 66)
+    kappafun = op.opalread(infile='GN93hz.txt', tableno = 73)
     
     for k in arange(nmdot):
         # OPAL:
@@ -327,21 +338,138 @@ def scurve():
     teff2=5.210*(r9*0.1)**(-0.1)*mass1**0.04
     
     clf()
+    fig=figure()
     plot(sig, teff, '.k')
-    plot(sig_Kr, teff, '-g')
+    plot(sig_Kr, teff, '-r')
     #    plot(teff**4*(sig.mean()/(teff**4).mean()), teff, 'b')
     #    plot(teff**3*(sig.mean()/(teff**3).mean()), teff, 'r')
     plot([sig1, sig2], [teff1, teff2], 'ob')
     xscale('log') #  ;  yscale('log')
-    ylabel(r'$T_{\rm eff}$, kK')  ;  xlabel(r'$\Sigma$, g\,cm$^{-2}$')
+    ylabel(r'$T_{\rm eff}$, kK', fontsize=18)  ;  xlabel(r'$\Sigma$, g\,cm$^{-2}$', fontsize=18)
+    tick_params(labelsize=16, length=3, width=1., which='minor')
+    tick_params(labelsize=16, length=3, width=1., which='major')
+    fig.set_size_inches(5, 4)
+    fig.tight_layout()
     savefig('scurve.eps')
     savefig('scurve.png')
     close()
     clf()
-    plot(sig, iof, '.k')
-    xscale('log')   ;  yscale('log')
-    ylabel(r'$x$')  ;  xlabel(r'$\Sigma$, g\,cm$^{-2}$')
+    fig=figure()
+    plot(iof, teff, '.k')
+    xscale('log')  #  ;  yscale('log')
+    xlabel(r'$n_{\rm e}/n_{\rm H}$', fontsize=18) # ;  ylabel(r'$T_{\rm eff}$, kK', fontsize=18)
+    tick_params(labelsize=16, length=3, width=1., which='minor')
+    tick_params(labelsize=16, length=3, width=1., which='major')
+    fig.set_size_inches(5, 4)
+    fig.tight_layout()
     savefig('scurve_iof.eps')
     savefig('scurve_iof.png')
     close()
+
+def ralfven(mdot11=1.):
+    '''
+    Alfven radius in 10^9 cm
+    '''
+    return 1.13 * b12**(4./7.)/mdot11**(2./7.)/mass1**(1./7.) # Alfven radius
+    
+def prandtles():
+    '''
+    final plot, calculating the Prandtl numbers on the magnetospheric radii
+    '''
+    # linking an OPAL table
+    kappafun = op.opalread(infile='GN93hz.txt', tableno = 73)
+
+    mdot1 = 20. ; mdot2 = 0.02 ; nm = 30
+    mdot = (mdot2/mdot1)**(arange(nm, dtype=double)/double(nm-1))*mdot1
+
+    xstore = 0.5
+    rfac = 3.
+    
+    ra=zeros(nm, dtype=double) ; temp=zeros(nm, dtype=double) ; hr=zeros(nm, dtype=double) ; x=zeros(nm, dtype=double)
+    pr=zeros(nm, dtype=double) ;  tau=zeros(nm, dtype=double)
+    temp1=zeros(nm, dtype=double) ; hr1=zeros(nm, dtype=double) ; x1=zeros(nm, dtype=double)
+    pr1=zeros(nm, dtype=double) ;  tau1=zeros(nm, dtype=double)
+    
+    for k in arange(nm):
+        # at the edge of magnetosphere:
+        ra[k] = ralfven(mdot[k])
+        temptmp = tempsolve(r9=ra[k], mdot11=mdot[k], opacity = kappafun)
+        temp[k] = temptmp
+        hr[k] = htor(temptmp, r9=ra[k])
+        n15 =  nc(temptmp, r9=ra[k], mdot11=mdot[k])
+        xstore = findiofr(temptmp, n15, xseed = xstore)
+        x[k] = xstore
+        omegatmp = condy(temptmp, n15, xstore)
+        #        print("omegatmp = "+str(omegatmp))
+        prtmp = prno(omegatmp[0], temptmp, ra[k])
+        #        print(prtmp)
+        pr[k] = prtmp
+        tau[k] = taufun(temptmp, n15, r9=ra[k], mdot11=mdot[k], opacity = kappafun)
+
+        # rfac times further out:
+        temptmp = tempsolve(r9=ra[k]*rfac, mdot11=mdot[k], opacity = kappafun)
+        temp1[k] = temptmp
+        hr1[k] = htor(temptmp, r9=ra[k]*rfac)
+        n15 =  nc(temptmp, r9=ra[k]*rfac, mdot11=mdot[k])
+        xstore = findiofr(temptmp, n15, xseed = xstore)
+        x1[k] = xstore
+        omegatmp = condy(temptmp, n15, xstore)
+        #        print("omegatmp = "+str(omegatmp))
+        prtmp = prno(omegatmp[0], temptmp, ra[k]*rfac)
+        #        print(prtmp)
+        pr1[k] = prtmp
+        tau1[k] = taufun(temptmp, n15, r9=ra[k]*rfac, mdot11=mdot[k], opacity = kappafun)
+    clf()
+    fig=figure()
+    subplot(611)
+    plot(mdot*1e-11, ra, 'k')
+    plot(mdot*1e-11, ra*rfac, ':k')
+    xscale('log')  ;  yscale('log')
+    ylabel(r'$R$, $10^9$cm', fontsize=18)
+    tick_params(labelsize=16, length=3, width=1., which='minor')
+    tick_params(labelsize=16, length=3, width=1., which='major')
+    subplot(612)
+    plot(mdot*1e-11, temp, 'k')
+    plot(mdot*1e-11, temp1, ':k')
+    xscale('log') ;  yscale('log')
+    ylabel(r'$T_{\rm c}$, kK', fontsize=18)
+    tick_params(labelsize=16, length=3, width=1., which='minor')
+    tick_params(labelsize=16, length=3, width=1., which='major')
+    subplot(613)
+    plot(mdot*1e-11, hr, 'k')
+    plot(mdot*1e-11, hr1, ':k')
+    xscale('log') ;  yscale('log')
+    ylabel(r'$H/R$', fontsize=18)
+    tick_params(labelsize=16, length=3, width=1., which='minor')
+    tick_params(labelsize=16, length=3, width=1., which='major')
+    subplot(614)
+    plot(mdot*1e-11, tau, 'k')
+    plot(mdot*1e-11, tau1, ':k')
+    xscale('log') ;  yscale('log')
+    ylabel(r'$\tau$', fontsize=18)
+    tick_params(labelsize=16, length=3, width=1., which='minor')
+    tick_params(labelsize=16, length=3, width=1., which='major')
+    subplot(615)
+    plot(mdot*1e-11, x, 'k')
+    plot(mdot*1e-11, x1, ':k')
+    xscale('log') # ;  yscale('log')
+    ylabel(r'$n_{\rm e}/n_{\rm H}$', fontsize=18)
+    tick_params(labelsize=16, length=3, width=1., which='minor')
+    tick_params(labelsize=16, length=3, width=1., which='major')
+    subplot(616)
+    plot(mdot*1e-11, pr*0.+1., '--g')
+    plot(mdot*1e-11, pr, 'k')
+    plot(mdot*1e-11, pr1, ':k')
+    plot(mdot*1e-11, pr*hr*3., 'r')
+    plot(mdot*1e-11, pr1*hr1*3., ':r')
+    xscale('log') ;  yscale('log')
+    ylabel(r'${\rm Pr}$', fontsize=18) ; xlabel(r'$\dot{M}$, M$_\odot\,{\rm yr}^{-1}$', fontsize=18)
+    tick_params(labelsize=16, length=3, width=1., which='minor')
+    tick_params(labelsize=16, length=3, width=1., which='major')
+    fig.set_size_inches(6, 15)
+    fig.tight_layout()
+    savefig('prandtles.png')
+    savefig('prandtles.eps')
+    close('all')
+    
     
