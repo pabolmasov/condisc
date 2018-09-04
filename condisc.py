@@ -372,12 +372,17 @@ def ralfven(mdot11=1.):
     '''
     return 1.13 * b12**(4./7.)/mdot11**(2./7.)/mass1**(1./7.) # Alfven radius
     
-def prandtles():
+def prandtles(zeroz=False):
+    global abund
     '''
     final plot, calculating the Prandtl numbers on the magnetospheric radii
     '''
     # linking an OPAL table
-    kappafun = op.opalread(infile='GN93hz.txt', tableno = 73)
+    if(zeroz):
+        kappafun = op.opalread(infile='GN93hz.txt', tableno = 66)
+        abund[2:]*=0.
+    else:
+        kappafun = op.opalread(infile='GN93hz.txt', tableno = 73)
 
     mdot1 = 20. ; mdot2 = 0.02 ; nm = 30
     mdot = (mdot2/mdot1)**(arange(nm, dtype=double)/double(nm-1))*mdot1
