@@ -56,7 +56,7 @@ sahacoeff = 1.30959e-5
 ioconvert = 11.6046 # converting eV to kK
 xtol = 1e-5
 ttol = 1e-5
-sigman = 1. # (in 1e-16 cm^2 units; neutral collision cross-section)
+sigman = 20. # (in 1e-16 cm^2 units; neutral collision cross-section, Itikawa 1974 gives 40 to 10, gradually decreasing with energy from 0.1 to 10eV)
 alpha = 0.1
 # we use the formalism of Ketsaris&Shakura 1998
 Pi1 = 2.
@@ -301,7 +301,7 @@ def scurve():
     r9 = 1. # radius in 10^9 cm (fixed)
     # corotation radius is 3.5\times 10^9 cm for GRO10
     mdot1 = 0.1*r9**3. ; mdot2 = 1e-4*r9**3. # 1e-11 Msun/yr units
-    nmdot=30
+    nmdot=100
     mdot = (mdot2 / mdot1)**(arange(nmdot, dtype=double)/double(nmdot)) * mdot1
 
     temp = zeros(nmdot, dtype=double)
@@ -345,9 +345,9 @@ def scurve():
     #    plot(teff**3*(sig.mean()/(teff**3).mean()), teff, 'r')
     plot([sig1, sig2], [teff1, teff2], 'ob')
     xscale('log') #  ;  yscale('log')
-    ylabel(r'$T_{\rm eff}$, kK', fontsize=18)  ;  xlabel(r'$\Sigma$, g\,cm$^{-2}$', fontsize=18)
-    tick_params(labelsize=16, length=3, width=1., which='minor')
-    tick_params(labelsize=16, length=3, width=1., which='major')
+    ylabel(r'$T_{\rm eff}$, kK', fontsize=16)  ;  xlabel(r'$\Sigma$, g\,cm$^{-2}$', fontsize=16)
+    tick_params(labelsize=14, length=3, width=1., which='minor')
+    tick_params(labelsize=14, length=3, width=1., which='major')
     fig.set_size_inches(5, 4)
     fig.tight_layout()
     savefig('scurve.eps')
@@ -357,9 +357,9 @@ def scurve():
     fig=figure()
     plot(iof, teff, '.k')
     xscale('log')  #  ;  yscale('log')
-    xlabel(r'$n_{\rm e}/n_{\rm H}$', fontsize=18) # ;  ylabel(r'$T_{\rm eff}$, kK', fontsize=18)
-    tick_params(labelsize=16, length=3, width=1., which='minor')
-    tick_params(labelsize=16, length=3, width=1., which='major')
+    xlabel(r'$n_{\rm e}/n_{\rm H}$', fontsize=16)  ;  ylabel(r'$T_{\rm eff}$, kK', fontsize=18)
+    tick_params(labelsize=14, length=3, width=1., which='minor')
+    tick_params(labelsize=14, length=3, width=1., which='major')
     fig.set_size_inches(5, 4)
     fig.tight_layout()
     savefig('scurve_iof.eps')
@@ -478,3 +478,7 @@ def prandtles(zeroz=False):
     close('all')
     
     
+##################
+def zneutraltest():
+    for k in arange(nel):
+        print(el[k]+": "+str((10.)**(abund[k]-12.)*double(k+1)**1.7))
