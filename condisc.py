@@ -147,8 +147,8 @@ def condy(temp, n15, x):
     # cross-sections in 1e-16 cm^2 units
     sigmaC = 1e5 / temp**2
     #    x = findiofr(temp, n15)
-    o13 = 20571.9 / sqrt(temp) * x/ (sigman * (xrenorm - x) + sigmaC * x)
-    o13_C = 20571.9 / sqrt(temp) / sigmaC
+    o13 = 20571.9 / sqrt(temp) * x/ (sigman * (xrenorm - x) + 2.* sigmaC * x)
+    o13_C = 20571.9 / sqrt(temp) / 2./ sigmaC
     o13_n = 20571.9 / sqrt(temp) * x / (xrenorm-x) / sigman
     
     return o13, o13_C, o13_n 
@@ -293,7 +293,7 @@ def xicond():
     fig.set_size_inches(5, 4)
     fig.tight_layout()
     savefig('conde.eps')
-    close()
+    close('all')
     
 #######################################################################
 # disc model plots
@@ -339,7 +339,7 @@ def scurve():
     
     clf()
     fig=figure()
-    plot(sig, teff, '.k')
+    plot(sig, teff, 'k')
     plot(sig_Kr, teff, '-r')
     #    plot(teff**4*(sig.mean()/(teff**4).mean()), teff, 'b')
     #    plot(teff**3*(sig.mean()/(teff**3).mean()), teff, 'r')
@@ -355,7 +355,7 @@ def scurve():
     close()
     clf()
     fig=figure()
-    plot(iof, teff, '.k')
+    plot(iof, teff, 'k')
     xscale('log')  #  ;  yscale('log')
     xlabel(r'$n_{\rm e}/n_{\rm H}$', fontsize=16)  ;  ylabel(r'$T_{\rm eff}$, kK', fontsize=18)
     tick_params(labelsize=14, length=3, width=1., which='minor')

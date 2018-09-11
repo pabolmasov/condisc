@@ -82,7 +82,7 @@ def opalread(infile='GN93hz.txt', tableno = 73):
     savefig('opal.eps')
     close()
     # interpolation
-    kappafun = interp2d(lgT, lgR, kappa, kind='linear', bounds_error = False)
+    kappafun = interp2d(lgT, lgR, kappa, kind='cubic', bounds_error = False)
     return kappafun
 
 def bookplot(rho=1e-8):
