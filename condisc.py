@@ -54,8 +54,8 @@ iop = asarray([13.59844, 24.58741,
 
 sahacoeff = 1.30959e-5
 ioconvert = 11.6046 # converting eV to kK
-xtol = 1e-5
-ttol = 1e-5
+xtol = 1e-3
+ttol = 1e-3
 sigman = 20. # (in 1e-16 cm^2 units; neutral collision cross-section, Itikawa 1974 gives 40 to 10, gradually decreasing with energy from 0.1 to 10eV)
 alpha = 0.1
 # we use the formalism of Ketsaris&Shakura 1998
@@ -118,11 +118,12 @@ def findiofr(temp, n15, xseed = 0.5):
     '''
     finds ionization fraction by direct iterations
     '''
-    x1=0. ; x2=1.
-    x=xseed
-    while((abs(x1/x2-1.)>xtol) & ((x1+x2)>1e-12)):
+    x1=0. ; x2=100.
+    x1=xseed
+#    print("x = "+str(x1)+" = "+str(x2))
+    while((abs((x1-x2)/(x1+x2))>xtol) & ((x1+x2)>1e-12)):
         x2 = abundfun(temp, n15, x1)
-        #        print("x = "+str(x1)+" = "+str(x2))
+#        print("x = "+str(x1)+" = "+str(x2))
         x1 = abundfun(temp, n15, x2)
 
     return (x1+x2)/2.
@@ -269,10 +270,10 @@ def xicond():
         plot(temp, xH[:, kn], '--', color=colorsequence[kn])
     xscale('log')  ;  yscale('log')
     ylim(1e-12, 1.5)
-    xlabel('$T$, kK', fontsize=18)
-    ylabel(r'$n_{\rm e} / n_{\rm H}$', fontsize=18)
-    plt.tick_params(labelsize=16, length=3, width=1., which='minor')
-    plt.tick_params(labelsize=16, length=3, width=1., which='major')
+    xlabel('$T$, kK', fontsize=16)
+    ylabel(r'$n_{\rm e} / n_{\rm H}$', fontsize=16)
+    plt.tick_params(labelsize=14, length=3, width=1., which='minor')
+    plt.tick_params(labelsize=14, length=3, width=1., which='major')
     fig.set_size_inches(5, 4)
     fig.tight_layout()
     savefig('iofrele.eps')
@@ -287,12 +288,13 @@ def xicond():
         plot(temp, con_n[:, kn], ':', linewidth = kn+1, color='r')
     ylim(1e-7, 1e3)
     xscale('log')  ;  yscale('log')
-    xlabel('$T$, kK', fontsize=18)  ;  ylabel(r'$\omega, \,10^{13}{\rm \, s}^{-1}$', fontsize=18)
-    tick_params(labelsize=16, length=3, width=1., which='minor')
-    tick_params(labelsize=16, length=3, width=1., which='major')
+    xlabel('$T$, kK', fontsize=16)  ;  ylabel(r'$\omega, \,10^{13}{\rm \, s}^{-1}$', fontsize=16)
+    tick_params(labelsize=14, length=3, width=1., which='minor')
+    tick_params(labelsize=14, length=3, width=1., which='major')
     fig.set_size_inches(5, 4)
     fig.tight_layout()
     savefig('conde.eps')
+    savefig('conde.png')
     close('all')
     
 #######################################################################
@@ -336,6 +338,12 @@ def scurve():
     sig2=74.6*(alpha/0.1)**(-0.83)*(r9*0.1)**1.18*mass1**(-0.4) # g/cm^2
     teff1=6.890*(r9*0.1)**(-0.09)*mass1**0.03
     teff2=5.210*(r9*0.1)**(-0.1)*mass1**0.04
+    # Dubus:
+    Dsig1 = 10.8 * alpha**(-0.84) * mass1**(-0.37) * (r9*0.1)**1.11 # g/cm^2
+    Dsig2 = 8.3 * alpha**(-0.77) * mass1**(-0.37) * (r9*0.1)**1.12 # g/cm^2
+    Dteff1=10.7*(alpha)**(-0.1)
+    Dteff2=20.9*(r9*0.1)**(0.05)*mass1**(-0.01)*alpha**(-0.22)
+    
     
     clf()
     fig=figure()
@@ -344,6 +352,7 @@ def scurve():
     #    plot(teff**4*(sig.mean()/(teff**4).mean()), teff, 'b')
     #    plot(teff**3*(sig.mean()/(teff**3).mean()), teff, 'r')
     plot([sig1, sig2], [teff1, teff2], 'ob')
+#    plot([Dsig1, Dsig2], [Dteff1, Dteff2], 'og')
     xscale('log') #  ;  yscale('log')
     ylabel(r'$T_{\rm eff}$, kK', fontsize=16)  ;  xlabel(r'$\Sigma$, g\,cm$^{-2}$', fontsize=16)
     tick_params(labelsize=14, length=3, width=1., which='minor')
@@ -457,7 +466,7 @@ def prandtles(zeroz=False):
     subplot(615)
     plot(mdot*1e-11, x, 'k')
     plot(mdot*1e-11, x1, ':k')
-    xscale('log') # ;  yscale('log')
+    xscale('log') ;  yscale('log')
     ylabel(r'$n_{\rm e}/n_{\rm H}$', fontsize=18)
     tick_params(labelsize=16, length=3, width=1., which='minor')
     tick_params(labelsize=16, length=3, width=1., which='major')
@@ -476,7 +485,65 @@ def prandtles(zeroz=False):
     savefig('prandtles.png')
     savefig('prandtles.eps')
     close('all')
+
+#########################################################
+def rcontour(zeroz=False):
+    global abund
+    '''
+    contour plot for different quantities as functions of radius and mdot
+    '''
+    # linking an OPAL table
+    if(zeroz):
+        kappafun = op.opalread(infile='GN93hz.txt', tableno = 66)
+        abund[2:]*=0.
+    else:
+        kappafun = op.opalread(infile='GN93hz.txt', tableno = 73)
+
+    mdot1 = 20. ; mdot2 = 0.02 ; nm = 100
+    mdot = (mdot2/mdot1)**(arange(nm, dtype=double)/double(nm-1))*mdot1
+    r1 = 0.30 ; r2 = 30. ; nr = 100
+    r = (r2/r1)**(arange(nr, dtype=double)/double(nr-1))*r1
     
+    x2 = zeros([nm, nr], dtype=double)
+    pr2 = zeros([nm, nr], dtype=double)
+    teff = zeros([nm, nr], dtype=double)
+
+    xstore=1.
+    
+    for kr in arange(nr):
+        if(kr>0):
+            xstore=xstore1
+        print("R = "+str(r[kr]))
+        for km in arange(nm):
+            temptmp = tempsolve(r9=r[kr], mdot11=mdot[km], opacity = kappafun)
+            n15 =  nc(temptmp, r9=r[kr], mdot11=mdot[km])
+            xstore = findiofr(temptmp, n15, xseed = xstore)
+            x2[km,kr] = xstore
+            if(km==0):
+                xstore1 = xstore
+            omegatmp = condy(temptmp, n15, xstore)
+            #        print("omegatmp = "+str(omegatmp))
+            pr2[km,kr] = prno(omegatmp[0], temptmp, r[kr])
+            teff[km, kr] = 20.4853 * (mass1 * mdot[km] / r[kr]**3)**0.25
+    clf()
+    fig, ax = subplots()
+    CF = ax.contourf(r, mdot*1e-11, log10(pr2))
+    fig.colorbar(CF)
+    tlev=[1,2,3,5,10,30]
+    CS = ax.contour(r, mdot*1e-11, teff, colors='w', levels=tlev)
+    ax.clabel(CS, inline=True, inline_spacing=0.5, fontsize=14, color='w', fmt='%d',rightside_up=True,use_clabeltext=True)
+    ax.contour(r, mdot*1e-11, log10(pr2), levels=[0.], colors='k', linestyles='--', linewidths=2)
+    ax.contour(r, mdot*1e-11, x2, levels=[0.5], colors='k')
+    ax.plot(ralfven(mdot), mdot*1e-11, linestyle='dotted', linewidth=2, color='k')
+    xscale('log'); yscale('log')
+    xlabel('$R$, $10^9$cm', fontsize=16) ;  ylabel(r'$\dot{M}$, M$_\odot\,{\rm yr}^{-1}$', fontsize=16)
+    tick_params(labelsize=14, length=3, width=1., which='minor')
+    tick_params(labelsize=14, length=3, width=1., which='major')
+    fig.set_size_inches(5, 4)
+    fig.tight_layout()
+    savefig('rcontour.eps')
+    savefig('rcontour.png')
+    close('all')
     
 ##################
 def zneutraltest():
