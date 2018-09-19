@@ -54,22 +54,26 @@ iop = asarray([13.59844, 24.58741,
 
 sahacoeff = 1.30959e-5
 ioconvert = 11.6046 # converting eV to kK
-xtol = 1e-3
-ttol = 1e-3
+xtol = 1e-3 # relative accuracy of ionization fraction estimates
+xtollinear = 1e-12 # absolute accuracy of x estimates: if Delta x < xtollinear, we are either completely neutral or very close to the real solution
+ttol = 1e-3 # relative accurace of temperature estimates
 sigman = 20. # (in 1e-16 cm^2 units; neutral collision cross-section, Itikawa 1974 gives 40 to 10, gradually decreasing with energy from 0.1 to 10eV)
-alpha = 0.1
+alpha = 1e-4
 # we use the formalism of Ketsaris&Shakura 1998
-Pi1 = 2.
+Pi1 = 6.3
 Pi2 = 0.5
-Pi3 = 1.
+Pi3 = 1.1
 Pi4 = 0.4
 lame = 0.0 # mixing length parameter (set lame=0 for no convection)
 mass1 = 1.5
 b12 = 8.
+pspin = 93.6
+rco = 0.1498*mass1**(1./3.)*pspin**(2./3.) # in 10^9cm units
+xifac = 0.5
 
 xrenorm = ((10.)**(abund-12.)).sum()  # maximal concentration of neutral atoms with respect to nH
 print("X renormalization "+str(xrenorm))
-
+print("rco = "+str(rco))
 # for k in arange(nel):
 #     print(el[k]+": Z="+str(abund[k])+"; IP="+str(iop[k])+"\n")
 
@@ -118,10 +122,10 @@ def findiofr(temp, n15, xseed = 0.5):
     '''
     finds ionization fraction by direct iterations
     '''
-    x1=0. ; x2=100.
+    x1=0. ; x2=10.
     x1=xseed
 #    print("x = "+str(x1)+" = "+str(x2))
-    while((abs((x1-x2)/(x1+x2))>xtol) & ((x1+x2)>1e-12)):
+    while((abs((x1-x2)/(x1+x2))>xtol) & (abs(x1-x2)>xtollinear)):
         x2 = abundfun(temp, n15, x1)
 #        print("x = "+str(x1)+" = "+str(x2))
         x1 = abundfun(temp, n15, x2)
@@ -146,7 +150,7 @@ def condy(temp, n15, x):
     '''
 
     # cross-sections in 1e-16 cm^2 units
-    sigmaC = 1e5 / temp**2
+    sigmaC = 0.877e5 / temp**2
     #    x = findiofr(temp, n15)
     o13 = 20571.9 / sqrt(temp) * x/ (sigman * (xrenorm - x) + 2.* sigmaC * x)
     o13_C = 20571.9 / sqrt(temp) / 2./ sigmaC
@@ -194,7 +198,7 @@ def tempfun(temp, r9=1., mdot11=1., opacity = None):
     # should be zero at proper Tc
     n15 = nc(temp, r9=r9, mdot11=mdot11)
     tau = taufun(temp, n15, r9=r9, mdot11=mdot11, opacity = opacity)
-    fluxratio = 5.678e-6*temp**4/mass1/mdot11*r9**3
+    fluxratio = 5.678e-6*temp**4/mass1/mdot11*r9**3 # (T_c/T_eff)**4
     csc = 9.58348e-06 * sqrt(temp) # speed of sound in light units
     prat = 54745.2 * n15 / temp**3
     return fluxratio * (32./3.*Pi4/tau + lame * csc * prat)-1.
@@ -206,8 +210,9 @@ def tempsolve(r9=1., mdot11=0.1, opacity = None):
     should be kappa_OPAL if we use OPAL tables; if None, Kramers approximation is taken
     '''
     
-    tc1=0.1 ; tc2=100. 
-    f1=tempfun(tc1, opacity = opacity) ; f2=tempfun(tc2, opacity = opacity)
+    tc1=0.01 ; tc2=1000. 
+    f1=tempfun(tc1, r9=r9, mdot11=mdot11, opacity = opacity) ; f2=tempfun(tc2, r9=r9, mdot11=mdot11, opacity = opacity)
+    #    print("F(T) = "+str(f1)+".."+str(f2))
     
     while(abs(tc2/tc1-1.)>ttol):
         tc=sqrt(tc1*tc2)
@@ -215,10 +220,26 @@ def tempsolve(r9=1., mdot11=0.1, opacity = None):
         if((f1*f)>0.):
             tc1=tc
             f1=f
+            #            print("new T1 = "+str(tc1))
         else:
             tc2=tc
             f2=f
-            #            print("new T = "+str(tc))
+            #            print("new T2 = "+str(tc2))
+        if((f1*f2)>0.):
+            print("new T = "+str(tc1)+".."+str(tc2))
+            ttmp1=0.1 ; ttmp2=100.; ntmp=1000
+            ttmp=(ttmp2/ttmp1)**(arange(ntmp)/double(ntmp))*ttmp1
+            ftmp=zeros(ntmp, dtype=double)
+            for kk in arange(ntmp):
+                ftmp[kk] = tempfun(ttmp[kk], r9=r9, mdot11=mdot11, opacity = opacity)
+            clf()
+            plot(ttmp, ftmp, 'k')
+            plot(ttmp, -ftmp, 'r')
+            plot([tc1, tc2], [f1, f2], '.b')
+            plot([tc1, tc2], [-f1, -f2], '.b')
+            xscale('log') ; yscale('log')
+            savefig('ttmp.png')
+            ii=input("T")
 
     return (tc1+tc2)/2.
 
@@ -302,7 +323,7 @@ def xicond():
 def scurve():
     r9 = 1. # radius in 10^9 cm (fixed)
     # corotation radius is 3.5\times 10^9 cm for GRO10
-    mdot1 = 0.1*r9**3. ; mdot2 = 1e-4*r9**3. # 1e-11 Msun/yr units
+    mdot1 = 1e-3*r9**3. ; mdot2 = 1e-6*r9**3. # 1e-11 Msun/yr units
     nmdot=100
     mdot = (mdot2 / mdot1)**(arange(nmdot, dtype=double)/double(nmdot)) * mdot1
 
@@ -312,7 +333,7 @@ def scurve():
     sig = zeros(nmdot, dtype=double)
     sig_Kr = zeros(nmdot, dtype=double)
     iof = zeros(nmdot, dtype=double)
-    xstore=0.5
+    xstore=1.
     
     # linking an OPAL table
     kappafun = op.opalread(infile='GN93hz.txt', tableno = 73)
@@ -334,16 +355,10 @@ def scurve():
         print("Teff = "+str(teff[k]))
 
     # Lasota's points:
-    sig1=39.9*(alpha/0.1)**(-0.8)*(r9*0.1)**1.11*mass1**(-0.37) # g/cm^2
-    sig2=74.6*(alpha/0.1)**(-0.83)*(r9*0.1)**1.18*mass1**(-0.4) # g/cm^2
-    teff1=6.890*(r9*0.1)**(-0.09)*mass1**0.03
-    teff2=5.210*(r9*0.1)**(-0.1)*mass1**0.04
-    # Dubus:
-    Dsig1 = 10.8 * alpha**(-0.84) * mass1**(-0.37) * (r9*0.1)**1.11 # g/cm^2
-    Dsig2 = 8.3 * alpha**(-0.77) * mass1**(-0.37) * (r9*0.1)**1.12 # g/cm^2
-    Dteff1=10.7*(alpha)**(-0.1)
-    Dteff2=20.9*(r9*0.1)**(0.05)*mass1**(-0.01)*alpha**(-0.22)
-    
+    sig1=39.9*(alpha/0.1)**(-0.33)*(r9*0.1)**1.11*mass1**(-0.37) # g/cm^2
+    sig2=74.6*(alpha/0.1)**(-0.33)*(r9*0.1)**1.18*mass1**(-0.4) # g/cm^2
+    teff1=6.890*(r9*0.1)**(-0.09)*mass1**0.03*alpha**(1./6.)
+    teff2=5.210*(r9*0.1)**(-0.1)*mass1**0.04*alpha**(1./6.)
     
     clf()
     fig=figure()
@@ -352,7 +367,6 @@ def scurve():
     #    plot(teff**4*(sig.mean()/(teff**4).mean()), teff, 'b')
     #    plot(teff**3*(sig.mean()/(teff**3).mean()), teff, 'r')
     plot([sig1, sig2], [teff1, teff2], 'ob')
-#    plot([Dsig1, Dsig2], [Dteff1, Dteff2], 'og')
     xscale('log') #  ;  yscale('log')
     ylabel(r'$T_{\rm eff}$, kK', fontsize=16)  ;  xlabel(r'$\Sigma$, g\,cm$^{-2}$', fontsize=16)
     tick_params(labelsize=14, length=3, width=1., which='minor')
@@ -373,7 +387,7 @@ def scurve():
     fig.tight_layout()
     savefig('scurve_iof.eps')
     savefig('scurve_iof.png')
-    close()
+    close('all')
 
 def ralfven(mdot11=1.):
     '''
@@ -487,7 +501,7 @@ def prandtles(zeroz=False):
     close('all')
 
 #########################################################
-def rcontour(zeroz=False):
+def rcontour(zeroz=False, rfac=2.):
     global abund
     '''
     contour plot for different quantities as functions of radius and mdot
@@ -499,14 +513,15 @@ def rcontour(zeroz=False):
     else:
         kappafun = op.opalread(infile='GN93hz.txt', tableno = 73)
 
-    mdot1 = 20. ; mdot2 = 0.02 ; nm = 100
+    mdot1 = 10. ; mdot2 = 0.01 ; nm = 30
     mdot = (mdot2/mdot1)**(arange(nm, dtype=double)/double(nm-1))*mdot1
-    r1 = 0.30 ; r2 = 30. ; nr = 100
+    r1 = 0.50 ; r2 = 20. ; nr = 30
     r = (r2/r1)**(arange(nr, dtype=double)/double(nr-1))*r1
     
     x2 = zeros([nm, nr], dtype=double)
     pr2 = zeros([nm, nr], dtype=double)
     teff = zeros([nm, nr], dtype=double)
+    hr2 = zeros([nm, nr], dtype=double)
 
     xstore=1.
     
@@ -515,26 +530,30 @@ def rcontour(zeroz=False):
             xstore=xstore1
         print("R = "+str(r[kr]))
         for km in arange(nm):
-            temptmp = tempsolve(r9=r[kr], mdot11=mdot[km], opacity = kappafun)
-            n15 =  nc(temptmp, r9=r[kr], mdot11=mdot[km])
+            temptmp = tempsolve(r9=r[kr]*rfac, mdot11=mdot[km], opacity = kappafun)
+            n15 =  nc(temptmp, r9=r[kr]*rfac, mdot11=mdot[km])
             xstore = findiofr(temptmp, n15, xseed = xstore)
             x2[km,kr] = xstore
             if(km==0):
                 xstore1 = xstore
             omegatmp = condy(temptmp, n15, xstore)
             #        print("omegatmp = "+str(omegatmp))
-            pr2[km,kr] = prno(omegatmp[0], temptmp, r[kr])
-            teff[km, kr] = 20.4853 * (mass1 * mdot[km] / r[kr]**3)**0.25
+            pr2[km,kr] = prno(omegatmp[0], temptmp, r[kr]*rfac)
+            teff[km, kr] = 20.4853 * (mass1 * mdot[km] / (r[kr]*rfac)**3)**0.25
+            hr2[km, kr] = htor(temptmp, r9=r[kr]*rfac)
     clf()
     fig, ax = subplots()
-    CF = ax.contourf(r, mdot*1e-11, log10(pr2))
+    CF = ax.contourf(r, mdot*1e-11, log10(pr2*hr2*3.), cmap='hot')
     fig.colorbar(CF)
     tlev=[1,2,3,5,10,30]
     CS = ax.contour(r, mdot*1e-11, teff, colors='w', levels=tlev)
     ax.clabel(CS, inline=True, inline_spacing=0.5, fontsize=14, color='w', fmt='%d',rightside_up=True,use_clabeltext=True)
-    ax.contour(r, mdot*1e-11, log10(pr2), levels=[0.], colors='k', linestyles='--', linewidths=2)
+    ax.contour(r, mdot*1e-11, log10(pr2*hr2*3.), levels=[0.], colors='k', linestyles='--', linewidths=2)
     ax.contour(r, mdot*1e-11, x2, levels=[0.5], colors='k')
-    ax.plot(ralfven(mdot), mdot*1e-11, linestyle='dotted', linewidth=2, color='k')
+    ax.plot(ralfven(mdot) * xifac, mdot*1e-11, linestyle='dotted', linewidth=2, color='k')
+    ax.plot(r*0.+rco, mdot*1e-11, linestyle='-.', linewidth=2, color='b')
+    ax.plot(r, mdot*0.+3.53042*1e-11, linewidth=5, color='g')
+    ax.plot(r, mdot*0.+3.53042/2.*1e-11, linewidth=5, color='g')
     xscale('log'); yscale('log')
     xlabel('$R$, $10^9$cm', fontsize=16) ;  ylabel(r'$\dot{M}$, M$_\odot\,{\rm yr}^{-1}$', fontsize=16)
     tick_params(labelsize=14, length=3, width=1., which='minor')
