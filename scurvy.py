@@ -37,8 +37,9 @@ def verte(piar, mdot, omega, sigma, kappafun):
     s=0. ; p=1.; z=0.; q=0. ; theta=1. # boundary conditions at the midplane
 
     ds=1e-3 # what should define ds?
-    pi1, pi2, pi3, pi4 = piar
-
+    #    pi1, pi2, pi3, pi4 = piar
+    pi1 = piar[0] ; pi2 = piar[1] ; pi3 = piar[2] ; pi4 = piar[3]
+    
     # mdot in 1e-11 Msun/yr
     # sigma in g/cm^2
     # omega in seconds
@@ -59,14 +60,28 @@ def verte(piar, mdot, omega, sigma, kappafun):
         theta1pos = (theta1+abs(theta1-thetamin*2.))/2.+thetamin
         kappa1 = kappa_OPAL(Tc*theta1pos, nc*p1/theta1pos, kappafun)
         # full step:
+        pprev = p ; zprev = z ; qprev = q ; thetaprev = theta ; sprev=s
         p -= pi1 * pi2 * z1 * ds
         z += pi2 * theta1 / p1 * ds
         q += pi3 * theta1 * ds
         theta -= pi4 * q1 * kappa1 *ds
         s += ds
         #    print(str(s)+" "+str(p)+" "+str(z)+" "+str(q)+" "+str(theta)+"\n")
-    
-    return (p-0.)**2 + (z-1.)**2 +  (q-1.)**2 +  (theta-0.)**2 + (s-1.)**2
+    # if we land due to s>1., we need to linearly interpolate to s=1.
+    if(s>1.):
+        p = (pprev*(s-1.) + p * (1.-sprev))/(s-sprev)
+        z = (zprev*(s-1.) + z * (1.-sprev))/(s-sprev)
+        q = (qprev*(s-1.) + q * (1.-sprev))/(s-sprev)
+        theta = (thetaprev*(s-1.) + theta * (1.-sprev))/(s-sprev)
+        return (p-0.)**2 + (z-1.)**2 +  (q-1.)**2 + (theta-0.)**2
+    else:
+        # we end prematurely, and s should be rescaled towards p=0 or theta=0
+        if(p<0.):
+            s = (sprev*(p-1.) + s * (1.-pprev))/(p-pprev)
+        else:
+            s = (sprev*(theta-1.) + s * (1.-thetaprev))/(theta-thetaprev)
+        return (1.-s)**2
+    #    return (p-0.)**2 + (z-1.)**2 +  (q-1.)**2 + (theta-0.)**2 + (s-1.)**2
 
 def pisolve(mdot=1., omega=0.1, sigma=10., pistart=[7.6, 0.47, 1.1, 0.4], kappafun = None):
     '''
@@ -79,7 +94,7 @@ def pisolve(mdot=1., omega=0.1, sigma=10., pistart=[7.6, 0.47, 1.1, 0.4], kappaf
         kappafun = op.opalread(infile='GN93hz.txt', tableno = 73)
 
     res = scipy.optimize.minimize(verte, pistart, args = (mdot, omega, sigma, kappafun),
-                                  method='Nelder-Mead', options={'maxiter': 1e3})
+                                  method='Nelder-Mead', options={'adaptive': True})
     # Nelder-Mead is a simplex; probably, best-suited for the problem
     
     return res
@@ -146,6 +161,7 @@ def curverestore():
                        +str(pi1)+" "+str(pi2)+" "+str(pi3)+" "+str(pi4)+"\n")
             print(str(sig[ksig])+" "+str(mdot[kmdot])+" "+str(deltaT[ksig, kmdot])+" "
                        +str(pi1)+" "+str(pi2)+" "+str(pi3)+" "+str(pi4))
+            fout.flush()
     fout.close()
 
 ############################################################
@@ -159,7 +175,7 @@ def findsig(mdot, omega, kappa=None, pistart=[8.0, 0.47, 1.1, 0.4], chord=False)
 
     tstart = time.time()
         
-    sigma1 = 0.1; sigma2 = 100. ; stol = 1e-3
+    sigma1 = 0.1; sigma2 = 100. ; stol = 1e-2
     res1 = pisolve(mdot=mdot, omega=omega, sigma=sigma1, pistart=pistart, kappafun=kappafun)
     dt1 = dtfun(res1, sigma1, mdot, omega, kappafun)
     pistore1 = res1.x
