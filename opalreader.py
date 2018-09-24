@@ -52,7 +52,7 @@ def opalread(infile='GN93hz.txt', tableno = 73):
     
     for k in arange(temprow-1):
         l=fin.readline()
-        print(l)
+        #        print(l)
     # now, l contains the grid in lgR
     s=l.split()
     lgR = asarray(s[1:], dtype=double)
@@ -69,7 +69,7 @@ def opalread(infile='GN93hz.txt', tableno = 73):
         if(ss>1):
             tlist.append(s[0]) # temperature            
             kappa[:(ss-1), kt] = s[1:] # opacities
-            print("lgT ="+str(s[0]))
+            #            print("lgT ="+str(s[0]))
             kt+=1
     lgT = asarray(tlist, dtype=double)
 

@@ -58,7 +58,7 @@ xtol = 1e-3 # relative accuracy of ionization fraction estimates
 xtollinear = 1e-12 # absolute accuracy of x estimates: if Delta x < xtollinear, we are either completely neutral or very close to the real solution
 ttol = 1e-3 # relative accurace of temperature estimates
 sigman = 20. # (in 1e-16 cm^2 units; neutral collision cross-section, Itikawa 1974 gives 40 to 10, gradually decreasing with energy from 0.1 to 10eV)
-alpha = 1e-4
+alpha = 1.
 # we use the formalism of Ketsaris&Shakura 1998
 Pi1 = 6.3
 Pi2 = 0.5
@@ -74,8 +74,8 @@ xifac = 0.5
 xrenorm = ((10.)**(abund-12.)).sum()  # maximal concentration of neutral atoms with respect to nH
 print("X renormalization "+str(xrenorm))
 print("rco = "+str(rco))
-# for k in arange(nel):
-#     print(el[k]+": Z="+str(abund[k])+"; IP="+str(iop[k])+"\n")
+
+ioff()
 
 ###############################################################
 # Pi-s as functions of optical depth
@@ -150,9 +150,9 @@ def condy(temp, n15, x):
     '''
 
     # cross-sections in 1e-16 cm^2 units
-    sigmaC = 0.877e5 / temp**2
+    sigmaC = 0.877e5 / temp**2 # Coulomb cross-section for Z=1
     #    x = findiofr(temp, n15)
-    o13 = 20571.9 / sqrt(temp) * x/ (sigman * (xrenorm - x) + 2.* sigmaC * x)
+    o13 = 20571.9 / sqrt(temp) * x/ (sigman * (xrenorm - x) + 2. * sigmaC * x)
     o13_C = 20571.9 / sqrt(temp) / 2./ sigmaC
     o13_n = 20571.9 / sqrt(temp) * x / (xrenorm-x) / sigman
     
@@ -323,7 +323,7 @@ def xicond():
 def scurve():
     r9 = 1. # radius in 10^9 cm (fixed)
     # corotation radius is 3.5\times 10^9 cm for GRO10
-    mdot1 = 1e-3*r9**3. ; mdot2 = 1e-6*r9**3. # 1e-11 Msun/yr units
+    mdot1 = 0.1*r9**3. ; mdot2 = 1e-4*r9**3. # 1e-11 Msun/yr units
     nmdot=100
     mdot = (mdot2 / mdot1)**(arange(nmdot, dtype=double)/double(nmdot)) * mdot1
 
@@ -355,10 +355,10 @@ def scurve():
         print("Teff = "+str(teff[k]))
 
     # Lasota's points:
-    sig1=39.9*(alpha/0.1)**(-0.33)*(r9*0.1)**1.11*mass1**(-0.37) # g/cm^2
-    sig2=74.6*(alpha/0.1)**(-0.33)*(r9*0.1)**1.18*mass1**(-0.4) # g/cm^2
-    teff1=6.890*(r9*0.1)**(-0.09)*mass1**0.03*alpha**(1./6.)
-    teff2=5.210*(r9*0.1)**(-0.1)*mass1**0.04*alpha**(1./6.)
+    sig1=39.9*(alpha/0.1)**(-0.8)*(r9*0.1)**1.11*mass1**(-0.37) # g/cm^2
+    sig2=74.6*(alpha/0.1)**(-0.83)*(r9*0.1)**1.18*mass1**(-0.4) # g/cm^2
+    teff1=6.890*(r9*0.1)**(-0.09)*mass1**0.03 #*alpha**(1./6.)
+    teff2=5.210*(r9*0.1)**(-0.1)*mass1**0.04 #*alpha**(1./6.)
     
     clf()
     fig=figure()
