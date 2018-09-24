@@ -1,10 +1,10 @@
 from scipy.integrate import *
 from scipy.interpolate import *
-import matplotlib
-from matplotlib import rc
-from matplotlib import axes
+# import matplotlib
+# from matplotlib import rc
+# from matplotlib import axes
 from numpy import *
-from pylab import *
+# from pylab import *
 from scipy.integrate import cumtrapz
 
 import numpy.random
@@ -13,16 +13,16 @@ import os
 import os.path
 from sys import exit
 
-#Uncomment the following if you want to use LaTeX in figures 
-rc('font',**{'family':'serif'})
-rc('mathtext',fontset='cm')
-rc('mathtext',rm='stix')
-rc('text', usetex=True)
+# Uncomment the following if you want to use LaTeX in figures 
+# rc('font',**{'family':'serif'})
+# rc('mathtext',fontset='cm')
+# rc('mathtext',rm='stix')
+# rc('text', usetex=True)
 # #add amsmath to the preamble
-matplotlib.rcParams['text.latex.preamble']=[r"\usepackage{amssymb,amsmath}"] 
+# matplotlib.rcParams['text.latex.preamble']=[r"\usepackage{amssymb,amsmath}"] 
 
-close('all')
-ioff()
+# close('all')
+# ioff()
 
 def lgTR(temp, n15):
     '''
@@ -73,14 +73,6 @@ def opalread(infile='GN93hz.txt', tableno = 73):
             kt+=1
     lgT = asarray(tlist, dtype=double)
 
-    # now we have two 1D grids, in R and in T, and are ready to initialize an interpolating function
-    # diagnostic plot:
-    clf()
-    contourf(lgT, lgR, kappa, levels=linspace(kappa.min(), kappa.max(), 30))
-    ylabel('$R$')  ;  xlabel(r'$\log T{\rm ,K}$')
-    colorbar()
-    savefig('opal.eps')
-    close()
     # interpolation
     kappafun = interp2d(lgT, lgR, kappa, kind='cubic', bounds_error = False)
     return kappafun
@@ -100,8 +92,8 @@ def bookplot(rho=1e-8):
     for k in arange(nt):
         kappa[k] = (10.)**kappafun(lgt[k], lgr[k])
     
-    clf()
-    plot(temp, kappa, '-k')
-    xscale('log') ; yscale('log')
-    savefig('bookplot.png')
-    close()
+#    clf()
+#    plot(temp, kappa, '-k')
+#    xscale('log') ; yscale('log')
+#    savefig('bookplot.png')#
+#    close()

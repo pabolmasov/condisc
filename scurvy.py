@@ -12,10 +12,13 @@ import os
 import os.path
 
 import opalreader as op
-import splot as pt
 
 thetamin = 0.01 # floor for temperature
 alpha=0.1 # viscosity parameter
+ifplot = False # if we are going to plot figures immediately
+
+if(ifplot):
+    import splot as pt
 
 def kappa_OPAL(temp, n15, kappafun):
     '''
@@ -189,7 +192,7 @@ def findsig(mdot, omega, kappa=None, pistart=[8.0, 0.47, 1.1, 0.4], chord=False)
     
     return (sigma1+sigma2)/2., piest
     
-def searchforsigma(r9 = 10., alpha = 0.1):
+def searchforsigma(r9 = 10.):
     '''
     finds the values of sigma for a range of mdot, for fixed alpha and radius [10^9cm]. 
     '''
