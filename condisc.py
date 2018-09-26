@@ -152,8 +152,8 @@ def condy(temp, n15, x):
     # cross-sections in 1e-16 cm^2 units
     sigmaC = 0.877e5 / temp**2 # Coulomb cross-section for Z=1
     #    x = findiofr(temp, n15)
-    o13 = 20571.9 / sqrt(temp) * x/ (sigman * (xrenorm - x) + 2. * sigmaC * x)
-    o13_C = 20571.9 / sqrt(temp) / 2./ sigmaC
+    o13 = 20571.9 / sqrt(temp) * x/ (sigman * (xrenorm - x) + 1.5 * sigmaC * x)
+    o13_C = 20571.9 / sqrt(temp) / 1.5/ sigmaC
     o13_n = 20571.9 / sqrt(temp) * x / (xrenorm-x) / sigman
     
     return o13, o13_C, o13_n 
