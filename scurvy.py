@@ -75,12 +75,7 @@ def verte(piar, mdot, omega, sigma, kappafun):
         theta = (thetaprev*(s-1.) + theta * (1.-sprev))/(s-sprev)
         return (p-0.)**2 + (z-1.)**2 +  (q-1.)**2 + (theta-0.)**2
     else:
-        # we end prematurely, and s should be rescaled towards p=0 or theta=0
-        if(p<0.):
-            s = (sprev*(p-1.) + s * (1.-pprev))/(p-pprev)
-        else:
-            s = (sprev*(theta-1.) + s * (1.-thetaprev))/(theta-thetaprev)
-        return (1.-s)**2
+        return (p-0.)**2 + (z-1.)**2 +  (q-1.)**2 + (theta-0.)**2+(1.-s)**2
     #    return (p-0.)**2 + (z-1.)**2 +  (q-1.)**2 + (theta-0.)**2 + (s-1.)**2
 
 def pisolve(mdot=1., omega=0.1, sigma=10., pistart=[7.6, 0.47, 1.1, 0.4], kappafun = None):
@@ -175,7 +170,7 @@ def findsig(mdot, omega, kappa=None, pistart=[8.0, 0.47, 1.1, 0.4], chord=False)
 
     tstart = time.time()
         
-    sigma1 = 0.1; sigma2 = 100. ; stol = 1e-2
+    sigma1 = 0.01; sigma2 = 1000. ; stol = 1e-3
     res1 = pisolve(mdot=mdot, omega=omega, sigma=sigma1, pistart=pistart, kappafun=kappafun)
     dt1 = dtfun(res1, sigma1, mdot, omega, kappafun)
     pistore1 = res1.x
@@ -184,7 +179,6 @@ def findsig(mdot, omega, kappa=None, pistart=[8.0, 0.47, 1.1, 0.4], chord=False)
     pistore2 = res2.x
 
     while(abs((sigma1-sigma2)/(sigma1+sigma2)) > stol):
-
         if(chord):
             sigma = exp((log(sigma1)*dt2 - log(sigma2)*dt1)/(dt2-dt1))
         else:
@@ -213,7 +207,7 @@ def searchforsigma(r9 = 10.):
     finds the values of sigma for a range of mdot, for fixed alpha and radius [10^9cm]. 
     '''
 
-    mdot1 = 0.01 ; mdot2 = 10. ; nmdot = 15
+    mdot1 = 0.1 ; mdot2 = 10. ; nmdot = 15
     mdot = (mdot2/mdot1)**(arange(nmdot)/double(nmdot-1))*mdot1
 
     omega = 0.446191 *r9**(-1.5) # for M=1.5Msun
@@ -227,7 +221,7 @@ def searchforsigma(r9 = 10.):
     
     for kmdot in arange(nmdot):
         sigmatmp, piout = findsig(mdot[kmdot], omega, kappa=kappafun, pistart=pistore)
-        pistart = piout ; sigma[kmdot] = sigmatmp
+        pistore = piout ; sigma[kmdot] = sigmatmp
         print(str(mdot[kmdot])+" "+str(sigma[kmdot]))
         fout.write(str(mdot[kmdot])+" "+str(sigma[kmdot])+"\n")
         fout.flush()
