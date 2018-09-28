@@ -39,7 +39,7 @@ def deltatshow(r9 = 10., alpha=0.1):
     ns = size(sun);  nm = size(mun)
     dt = transpose(reshape(dt, [ns, nm]))
 
-    lines = loadtxt('sigtable.dat', comments="#", delimiter=" ", unpack=False)
+    lines = loadtxt('sigtable_alpha0.1.dat', comments="#", delimiter=" ", unpack=False)
     sigline = lines[:,1]
     mdotline = lines[:,0]    
 
@@ -61,4 +61,42 @@ def deltatshow(r9 = 10., alpha=0.1):
     xscale('log')
     ylabel(r'$T_{\rm eff}$, kK') ;   xlabel(r'$\Sigma$, ${\rm g\,cm^{-2}}$')
     savefig('deltat.png')
+    close('all')
+
+def scurvecompare(r9=10.):
+
+    lines = loadtxt('sigtable_alpha1.dat', comments="#", delimiter=" ", unpack=False)
+    sigline0 = lines[:,1]
+    mdotline0 = lines[:,0]    
+    lines = loadtxt('sigtable_alpha0.1.dat', comments="#", delimiter=" ", unpack=False)
+    sigline1 = lines[:,1]
+    mdotline1 = lines[:,0]    
+    lines = loadtxt('sigtable_alpha0.01.dat', comments="#", delimiter=" ", unpack=False)
+    sigline2 = lines[:,1]
+    mdotline2 = lines[:,0]    
+
+    teff0 = 22.6708 *mdotline0**0.25 / r9**0.75
+    teff1 = 22.6708 *mdotline1**0.25 / r9**0.75
+    teff2 = 22.6708 *mdotline2**0.25 / r9**0.75
+
+    # Lasota's points:
+    Lsig0_1=39.9*(1./0.1)**(-0.8)*(r9*0.1)**1.11*mass1**(-0.37) # g/cm^2
+    Lsig0_2=74.6*(1./0.1)**(-0.83)*(r9*0.1)**1.18*mass1**(-0.4) # g/cm^2
+    Lsig1_1=39.9*(0.1/0.1)**(-0.8)*(r9*0.1)**1.11*mass1**(-0.37) # g/cm^2
+    Lsig1_2=74.6*(0.1/0.1)**(-0.83)*(r9*0.1)**1.18*mass1**(-0.4) # g/cm^2
+    Lsig2_1=39.9*(0.01/0.1)**(-0.8)*(r9*0.1)**1.11*mass1**(-0.37) # g/cm^2
+    Lsig2_2=74.6*(0.01/0.1)**(-0.83)*(r9*0.1)**1.18*mass1**(-0.4) # g/cm^2
+    Lteff1=6.890*(r9*0.1)**(-0.09)*mass1**0.03 #*alpha**(1./6.)
+    Lteff2=5.210*(r9*0.1)**(-0.1)*mass1**0.04 #*alpha**(1./6.)
+
+    clf()
+    plot(sigline0, teff0, 'k', linewidth=2, label=r"$\alpha = 1$")
+    plot(sigline1, teff1, 'b', linewidth=2, label=r"$\alpha = 0.1$")
+    plot(sigline2, teff2, 'g', linewidth=2, label=r"$\alpha = 0.01$")
+    plot([Lsig0_1, Lsig0_2], [Lteff1, Lteff2], 'ok')
+    plot([Lsig1_1, Lsig1_2], [Lteff1, Lteff2], 'ob')
+    plot([Lsig2_1, Lsig2_2], [Lteff1, Lteff2], 'og')
+    xscale('log')
+    ylabel(r'$T_{\rm eff}$, kK') ;   xlabel(r'$\Sigma$, ${\rm g\,cm^{-2}}$')
+    savefig('sigcompare.png')
     close('all')

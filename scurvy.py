@@ -27,6 +27,8 @@ def kappa_OPAL(temp, n15, kappafun):
     lgT, lgR = op.lgTR(temp, n15)
     return 10.**(kappafun(lgT, lgR))
 
+#################################################################
+# vertical structure solvers:
 def verte(piar, mdot, omega, sigma, kappafun):
     '''
     solves the vertical structure equations for given Pi1-4, mdot [1e-11 Msun/yr], omega [s^-1], sigma [g/cm^2], and opacity function
@@ -36,7 +38,7 @@ def verte(piar, mdot, omega, sigma, kappafun):
 
     s=0. ; p=1.; z=0.; q=0. ; theta=1. # boundary conditions at the midplane
 
-    ds=1e-3 # what should define ds?
+    ds=0.5e-3 # what should define ds?
     #    pi1, pi2, pi3, pi4 = piar
     pi1 = piar[0] ; pi2 = piar[1] ; pi3 = piar[2] ; pi4 = piar[3]
     
@@ -54,11 +56,11 @@ def verte(piar, mdot, omega, sigma, kappafun):
         p1 = p - pi1 * pi2 * z * (ds/2.)
         z1 = z + pi2 * theta / p * (ds/2.)
         q1 = q + pi3 * theta * (ds/2.)
-        thetapos = (theta+abs(theta-thetamin*2.))/2.+thetamin
-        kappa = kappa_OPAL(Tc*thetapos, nc*p/thetapos, kappafun)
+        #        thetapos = (theta+abs(theta-thetamin*2.))/2.+thetamin
+        kappa = kappa_OPAL(Tc*theta, nc*p/theta, kappafun)
         theta1 = theta - pi4 * q * kappa * (ds/2.)
-        theta1pos = (theta1+abs(theta1-thetamin*2.))/2.+thetamin
-        kappa1 = kappa_OPAL(Tc*theta1pos, nc*p1/theta1pos, kappafun)
+        #        theta1pos = (theta1+abs(theta1-thetamin*2.))/2.+thetamin
+        kappa1 = kappa_OPAL(Tc*theta1, nc*p1/theta1, kappafun)
         # full step:
         pprev = p ; zprev = z ; qprev = q ; thetaprev = theta ; sprev=s
         p -= pi1 * pi2 * z1 * ds
@@ -78,7 +80,63 @@ def verte(piar, mdot, omega, sigma, kappafun):
         return (p-0.)**2 + (z-1.)**2 +  (q-1.)**2 + (theta-0.)**2+(1.-s)**2
     #    return (p-0.)**2 + (z-1.)**2 +  (q-1.)**2 + (theta-0.)**2 + (s-1.)**2
 
-def pisolve(mdot=1., omega=0.1, sigma=10., pistart=[7.6, 0.47, 1.1, 0.4], kappafun = None):
+def upsidedown(piar, mdot, omega, sigma, kappafun):
+    '''
+    solves the vertical structure equations for given Pi1-4, mdot [1e-11 Msun/yr], omega [s^-1], sigma [g/cm^2], and opacity function
+    returns a residual function equal to zero iff the BCs at the surface are satisfied
+    '''
+    # Tc in kK, nc in 1e15
+
+    #    s=0. ; p=1.; z=0.; q=0. ; theta=1. # boundary conditions at the midplane
+    s=1. ; p=0. ; z=1. ; q=1. ; theta=0.
+    
+    ds=0.5e-3 # what should define ds?
+    #    pi1, pi2, pi3, pi4 = piar
+    pi1 = piar[0] ; pi2 = piar[1] ; pi3 = piar[2] ; pi4 = piar[3]
+    
+    # mdot in 1e-11 Msun/yr
+    # sigma in g/cm^2
+    # omega in seconds
+    Tc = pi3 / alpha * 1215.33 * mdot * omega / sigma 
+    nc = 2080.93 * omega * sigma / sqrt(Tc)  / sqrt(pi1) / pi2
+    
+    kappa0 = kappa_OPAL(Tc, nc, kappafun)
+    tau0=kappa0*sigma
+    #    print("kappa0 = "+str(kappa0))
+    thetasurface = (16./3.*pi4/tau0)**0.25 
+    psurface = sqrt(3./16./2.**0.125*pi1*pi2/pi4*thetasurface**(17./2.))
+    theta = thetasurface ; p = psurface
+    
+    while((s>0.) & (q>0.) & (z>0.)): # & (theta < 1.) & (p <1.)):
+        # half-step:
+        p1 = p + pi1 * pi2 * z * (ds/2.)
+        z1 = z - pi2 * theta / p * (ds/2.)
+        q1 = q - pi3 * theta * (ds/2.)
+        #        thetapos = (theta+abs(theta-thetamin*2.))/2.+thetamin
+        kappa = kappa_OPAL(Tc*theta, nc*p/theta, kappafun)
+        theta1 = theta + pi4 * q * kappa * (ds/2.)
+        #        theta1pos = (theta1+abs(theta1-thetamin*2.))/2.+thetamin
+        kappa1 = kappa_OPAL(Tc*theta1, nc*p1/theta1, kappafun)
+        # full step:
+        pprev = p ; zprev = z ; qprev = q ; thetaprev = theta ; sprev=s
+        p += pi1 * pi2 * z1 * ds
+        z -= pi2 * theta1 / p1 * ds
+        q -= pi3 * theta1 * ds
+        theta += pi4 * q1 * kappa1 *ds
+        s -= ds
+        #        print(str(s)+" "+str(p)+" "+str(z)+" "+str(q)+" "+str(theta)+"\n")
+    # if we land due to s>1., we need to linearly interpolate to s=1.
+    #    if(s<=0.):
+    p = (pprev*s - p * sprev)/(s-sprev)
+    z = (zprev*s - z * sprev)/(s-sprev)
+    q = (qprev*s - q * sprev)/(s-sprev)
+    theta = (thetaprev*s -  theta * sprev)/(s-sprev)
+    return (p-1.)**2 + z**2 +  q**2 + (theta-1.)**2
+    #    else:
+    #        return (p-1.)**2 + (z-1.)**2 +  (q-1.)**2 + (theta-0.)**2+(1.-s)**2
+    #    return (p-0.)**2 + (z-1.)**2 +  (q-1.)**2 + (theta-0.)**2 + (s-1.)**2
+
+def pisolve(mdot=1., omega=0.1, sigma=10., pistart=[7.6, 0.47, 1.1, 0.4], kappafun = None, downwards = True):
     '''
     searches the set of Pi parameters (Ketsaris&Shakura 1998) that zeros the verte function (see above)
     mdot in 1e-11 Msun/yr, omega in 1/s, sigma in g/cm^2
@@ -88,8 +146,12 @@ def pisolve(mdot=1., omega=0.1, sigma=10., pistart=[7.6, 0.47, 1.1, 0.4], kappaf
         # linking an OPAL table if not linked by the calling routine
         kappafun = op.opalread(infile='GN93hz.txt', tableno = 73)
 
-    res = scipy.optimize.minimize(verte, pistart, args = (mdot, omega, sigma, kappafun),
-                                  method='Nelder-Mead', options={'adaptive': True})
+    if(downwards):
+        res = scipy.optimize.minimize(upsidedown, pistart, args = (mdot, omega, sigma, kappafun),
+                                      method='Nelder-Mead', options={'adaptive': True})
+    else:
+        res = scipy.optimize.minimize(verte, pistart, args = (mdot, omega, sigma, kappafun),
+                                      method='Nelder-Mead', options={'adaptive': True})
     # Nelder-Mead is a simplex; probably, best-suited for the problem
     
     return res

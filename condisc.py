@@ -54,11 +54,11 @@ iop = asarray([13.59844, 24.58741,
 
 sahacoeff = 1.30959e-5
 ioconvert = 11.6046 # converting eV to kK
-xtol = 1e-3 # relative accuracy of ionization fraction estimates
+xtol = 1.e-3 # relative accuracy of ionization fraction estimates
 xtollinear = 1e-12 # absolute accuracy of x estimates: if Delta x < xtollinear, we are either completely neutral or very close to the real solution
-ttol = 1e-3 # relative accurace of temperature estimates
+ttol = 1.e-3 # relative accurace of temperature estimates
 sigman = 20. # (in 1e-16 cm^2 units; neutral collision cross-section, Itikawa 1974 gives 40 to 10, gradually decreasing with energy from 0.1 to 10eV)
-alpha = 1.
+alpha = 0.1
 # we use the formalism of Ketsaris&Shakura 1998
 Pi1 = 6.3
 Pi2 = 0.5
@@ -321,9 +321,9 @@ def xicond():
 #######################################################################
 # disc model plots
 def scurve():
-    r9 = 1. # radius in 10^9 cm (fixed)
+    r9 = 10. # radius in 10^9 cm (fixed)
     # corotation radius is 3.5\times 10^9 cm for GRO10
-    mdot1 = 0.1*r9**3. ; mdot2 = 1e-4*r9**3. # 1e-11 Msun/yr units
+    mdot1 = 0.03*r9**3. ; mdot2 = 3e-5*r9**3. # 1e-11 Msun/yr units
     nmdot=100
     mdot = (mdot2 / mdot1)**(arange(nmdot, dtype=double)/double(nmdot)) * mdot1
 
@@ -364,8 +364,6 @@ def scurve():
     fig=figure()
     plot(sig, teff, 'k')
     plot(sig_Kr, teff, '-r')
-    #    plot(teff**4*(sig.mean()/(teff**4).mean()), teff, 'b')
-    #    plot(teff**3*(sig.mean()/(teff**3).mean()), teff, 'r')
     plot([sig1, sig2], [teff1, teff2], 'ob')
     xscale('log') #  ;  yscale('log')
     ylabel(r'$T_{\rm eff}$, kK', fontsize=16)  ;  xlabel(r'$\Sigma$, g\,cm$^{-2}$', fontsize=16)
@@ -389,6 +387,27 @@ def scurve():
     savefig('scurve_iof.png')
     close('all')
 
+    # comparison to scurvy
+    lines = loadtxt('sigtable.dat', comments="#", delimiter=" ", unpack=False)
+    sigline = lines[:,1]
+    mdotline = lines[:,0]    
+    teff_line = 22.6708 *mdotline**0.25 / r9**0.75
+    clf()
+    fig=figure()
+    plot(sig, teff, 'k')
+    plot(sig_Kr, teff, '-r')
+    plot(sigline, teff_line, ':b')
+    plot([sig1, sig2], [teff1, teff2], 'ob')
+    xscale('log') #  ;  yscale('log')
+    ylabel(r'$T_{\rm eff}$, kK', fontsize=16)  ;  xlabel(r'$\Sigma$, g\,cm$^{-2}$', fontsize=16)
+    tick_params(labelsize=14, length=3, width=1., which='minor')
+    tick_params(labelsize=14, length=3, width=1., which='major')
+    fig.set_size_inches(5, 4)
+    fig.tight_layout()
+    savefig('scurve_compare.eps')
+    savefig('scurve_compare.png')
+    close('all')
+
 def ralfven(mdot11=1.):
     '''
     Alfven radius in 10^9 cm
@@ -402,8 +421,8 @@ def prandtles(zeroz=False):
     '''
     # linking an OPAL table
     if(zeroz):
-        kappafun = op.opalread(infile='GN93hz.txt', tableno = 66)
-        abund[2:]*=0.
+        kappafun = op.opalread(infile='GN93hz.txt', tableno = 67)
+        abund[2:]*=0.01
     else:
         kappafun = op.opalread(infile='GN93hz.txt', tableno = 73)
 
@@ -420,7 +439,7 @@ def prandtles(zeroz=False):
     
     for k in arange(nm):
         # at the edge of magnetosphere:
-        ra[k] = ralfven(mdot[k])
+        ra[k] = ralfven(mdot[k])*xifac # Alfven radius by dimensionless xi factor
         temptmp = tempsolve(r9=ra[k], mdot11=mdot[k], opacity = kappafun)
         temp[k] = temptmp
         hr[k] = htor(temptmp, r9=ra[k])
@@ -508,8 +527,8 @@ def rcontour(zeroz=False, rfac=2.):
     '''
     # linking an OPAL table
     if(zeroz):
-        kappafun = op.opalread(infile='GN93hz.txt', tableno = 66)
-        abund[2:]*=0.
+        kappafun = op.opalread(infile='GN93hz.txt', tableno = 67)
+        abund[2:]*=0.01
     else:
         kappafun = op.opalread(infile='GN93hz.txt', tableno = 73)
 
