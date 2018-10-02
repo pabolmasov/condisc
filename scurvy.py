@@ -90,7 +90,7 @@ def upsidedown(piar, mdot, omega, sigma, kappafun):
     #    s=0. ; p=1.; z=0.; q=0. ; theta=1. # boundary conditions at the midplane
     s=1. ; p=0. ; z=1. ; q=1. ; theta=0.
     
-    ds=0.5e-3 # what should define ds?
+    ds=1.e-3 # what should define ds?
     #    pi1, pi2, pi3, pi4 = piar
     pi1 = piar[0] ; pi2 = piar[1] ; pi3 = piar[2] ; pi4 = piar[3]
     
@@ -103,8 +103,9 @@ def upsidedown(piar, mdot, omega, sigma, kappafun):
     kappa0 = kappa_OPAL(Tc, nc, kappafun)
     tau0=kappa0*sigma
     #    print("kappa0 = "+str(kappa0))
-    thetasurface = (16./3.*pi4/tau0)**0.25 
-    psurface = sqrt(3./16./2.**0.125*pi1*pi2/pi4*thetasurface**(17./2.))
+    thetasurface = (32./3.*pi4/tau0)**0.25 # from the definition of pi4 and photospheric condition at tau=2/3 
+    fcorr=1.05
+    psurface = sqrt(3./16./2.**0.125*pi1*pi2/pi4*thetasurface**(17./2.)*fcorr)
     theta = thetasurface ; p = psurface
     
     while((s>0.) & (q>0.) & (z>0.)): # & (theta < 1.) & (p <1.)):
@@ -148,7 +149,7 @@ def pisolve(mdot=1., omega=0.1, sigma=10., pistart=[7.6, 0.47, 1.1, 0.4], kappaf
 
     if(downwards):
         res = scipy.optimize.minimize(upsidedown, pistart, args = (mdot, omega, sigma, kappafun),
-                                      method='Nelder-Mead', options={'adaptive': True})
+                                      method='Nelder-Mead', options={'adaptive': False})
     else:
         res = scipy.optimize.minimize(verte, pistart, args = (mdot, omega, sigma, kappafun),
                                       method='Nelder-Mead', options={'adaptive': True})
@@ -179,7 +180,7 @@ def curverestore():
     mdot1 = 0.01 ; mdot2 = 10. ; nmdot = 35
     mdot = (mdot2/mdot1)**(arange(nmdot)/double(nmdot-1))*mdot1
 
-    r9 = 10.
+    r9 = 3.
     omega = 0.446191 *r9**(-1.5) # for M=1.5Msun
 
     pistore_sig = [8.0, 0.47, 1.1, 0.4]
@@ -198,9 +199,9 @@ def curverestore():
         pistore = pistore_sig
         for kmdot in arange(nmdot):
             res = pisolve(mdot=mdot[kmdot], omega=omega, sigma=sig[ksig], pistart=pistore, kappafun=kappafun)
-            if(kmdot>0):
+            if(kmdot<(nmdot-1)):
                 pistore = res.x
-            else:
+            if(kmdot == 0)
                 pistore_sig = res.x
             pi1, pi2, pi3, pi4 = res.x
             #            Tc = pi3 / alpha * 1215.33 * mdot[kmdot] * omega / sig[ksig]
@@ -264,7 +265,7 @@ def findsig(mdot, omega, kappa=None, pistart=[8.0, 0.47, 1.1, 0.4], chord=False)
     
     return (sigma1+sigma2)/2., piest
     
-def searchforsigma(r9 = 10.):
+def searchforsigma(r9 = 3.):
     '''
     finds the values of sigma for a range of mdot, for fixed alpha and radius [10^9cm]. 
     '''

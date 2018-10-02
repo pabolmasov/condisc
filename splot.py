@@ -39,7 +39,7 @@ def deltatshow(r9 = 10., alpha=0.1):
     ns = size(sun);  nm = size(mun)
     dt = transpose(reshape(dt, [ns, nm]))
 
-    lines = loadtxt('sigtable_alpha0.1.dat', comments="#", delimiter=" ", unpack=False)
+    lines = loadtxt('sigtable.dat', comments="#", delimiter=" ", unpack=False)
     sigline = lines[:,1]
     mdotline = lines[:,0]    
 

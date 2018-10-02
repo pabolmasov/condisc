@@ -6,6 +6,8 @@ from matplotlib import axes
 from numpy import *
 from pylab import *
 from scipy.integrate import cumtrapz
+from scipy.ndimage import zoom, gaussian_filter
+
 
 import numpy.random
 # import time
@@ -54,9 +56,9 @@ iop = asarray([13.59844, 24.58741,
 
 sahacoeff = 1.30959e-5
 ioconvert = 11.6046 # converting eV to kK
-xtol = 1.e-3 # relative accuracy of ionization fraction estimates
+xtol = 1.e-5 # relative accuracy of ionization fraction estimates
 xtollinear = 1e-12 # absolute accuracy of x estimates: if Delta x < xtollinear, we are either completely neutral or very close to the real solution
-ttol = 1.e-3 # relative accurace of temperature estimates
+ttol = 1.e-5 # relative accurace of temperature estimates
 sigman = 20. # (in 1e-16 cm^2 units; neutral collision cross-section, Itikawa 1974 gives 40 to 10, gradually decreasing with energy from 0.1 to 10eV)
 alpha = 0.1
 # we use the formalism of Ketsaris&Shakura 1998
@@ -67,7 +69,7 @@ Pi4 = 0.4
 lame = 0.0 # mixing length parameter (set lame=0 for no convection)
 mass1 = 1.5
 b12 = 8.
-pspin = 93.6
+pspin = 93.6 # spin period, seconds
 rco = 0.1498*mass1**(1./3.)*pspin**(2./3.) # in 10^9cm units
 xifac = 0.5
 
@@ -76,6 +78,7 @@ print("X renormalization "+str(xrenorm))
 print("rco = "+str(rco))
 
 ioff()
+close('all')
 
 ###############################################################
 # Pi-s as functions of optical depth
@@ -245,7 +248,7 @@ def tempsolve(r9=1., mdot11=0.1, opacity = None):
 
 def prno(omega, temp, r):
     '''
-    calculates Prandtl number, given conductivity (in 1e13/s units), temperature in kK, and radius in 1e9
+    calculates radius-scale Prandtl number, given conductivity (in 1e13/s units), temperature in kK, and radius in 1e9
     '''
     return 1.05599e4 * omega * r**1.5/sqrt(mass1) * alpha/Pi3 * temp
 
@@ -415,7 +418,7 @@ def ralfven(mdot11=1.):
     return 1.13 * b12**(4./7.)/mdot11**(2./7.)/mass1**(1./7.) # Alfven radius
     
 def prandtles(zeroz=False):
-    global abund
+    global abund, xrenorm
     '''
     final plot, calculating the Prandtl numbers on the magnetospheric radii
     '''
@@ -423,6 +426,7 @@ def prandtles(zeroz=False):
     if(zeroz):
         kappafun = op.opalread(infile='GN93hz.txt', tableno = 67)
         abund[2:]*=0.01
+        xrenorm = ((10.)**(abund-12.)).sum()  # maximal concentration of neutral atoms with respect to nH
     else:
         kappafun = op.opalread(infile='GN93hz.txt', tableno = 73)
 
@@ -521,7 +525,7 @@ def prandtles(zeroz=False):
 
 #########################################################
 def rcontour(zeroz=False, rfac=2.):
-    global abund
+    global abund, xrenorm
     '''
     contour plot for different quantities as functions of radius and mdot
     '''
@@ -529,18 +533,22 @@ def rcontour(zeroz=False, rfac=2.):
     if(zeroz):
         kappafun = op.opalread(infile='GN93hz.txt', tableno = 67)
         abund[2:]*=0.01
+        xrenorm = ((10.)**(abund-12.)).sum()  # maximal concentration of neutral atoms with respect to nH
     else:
         kappafun = op.opalread(infile='GN93hz.txt', tableno = 73)
+        xrenorm = ((10.)**(abund-12.)).sum()  # maximal concentration of neutral atoms with respect to nH
 
-    mdot1 = 10. ; mdot2 = 0.01 ; nm = 30
+    mdot1 = 10. ; mdot2 = 0.01 ; nm = 100
     mdot = (mdot2/mdot1)**(arange(nm, dtype=double)/double(nm-1))*mdot1
-    r1 = 0.50 ; r2 = 20. ; nr = 30
+    r1 = 0.50 ; r2 = 20. ; nr = 101
     r = (r2/r1)**(arange(nr, dtype=double)/double(nr-1))*r1
     
     x2 = zeros([nm, nr], dtype=double)
     pr2 = zeros([nm, nr], dtype=double)
     teff = zeros([nm, nr], dtype=double)
     hr2 = zeros([nm, nr], dtype=double)
+    mdot2d = zeros([nm, nr], dtype=double)
+    r2d = zeros([nm, nr], dtype=double)
 
     xstore=1.
     
@@ -560,19 +568,39 @@ def rcontour(zeroz=False, rfac=2.):
             pr2[km,kr] = prno(omegatmp[0], temptmp, r[kr]*rfac)
             teff[km, kr] = 20.4853 * (mass1 * mdot[km] / (r[kr]*rfac)**3)**0.25
             hr2[km, kr] = htor(temptmp, r9=r[kr]*rfac)
+            mdot2d[km,kr]=mdot[km]
+            r2d[km,kr]=r[kr]
+
+    prh2 = pr2 * hr2 * 3.
+
+    # print(shape(mdot), shape(r), shape(x2))
+    #    xfun = interp2d(log(r), log(mdot), log(x2))
+    mdottmp = (mdot2/mdot1)**(arange(nm*5, dtype=double)/double(nm*5-1))*mdot1
+    rtmp = (r2/r1)**(arange(nr*5, dtype=double)/double(nr*5-1))*r1
+    mdottmp2, rtmp2 = meshgrid(mdottmp, rtmp)
+    #    x2 = gaussian_filter(x2,[1.,1.])
+    #    prh2 = gaussian_filter(prh2,[1.,1.])
+    #    pr2zoom = zoom(gaussian_filter(pr2*hr2*3.,[1.,1.], mode='nearest'), 5)
+    x2zoom = zoom(x2, 5)
+    pr2zoom = zoom(pr2, 5)
+    mdot2dzoom = zoom(mdot2d, 5) ;    r2dzoom = zoom(r2d, 5)
     clf()
     fig, ax = subplots()
-    CF = ax.contourf(r, mdot*1e-11, log10(pr2*hr2*3.), cmap='hot')
-    fig.colorbar(CF)
-    tlev=[1,2,3,5,10,30]
-    CS = ax.contour(r, mdot*1e-11, teff, colors='w', levels=tlev)
-    ax.clabel(CS, inline=True, inline_spacing=0.5, fontsize=14, color='w', fmt='%d',rightside_up=True,use_clabeltext=True)
-    ax.contour(r, mdot*1e-11, log10(pr2*hr2*3.), levels=[0.], colors='k', linestyles='--', linewidths=2)
-    ax.contour(r, mdot*1e-11, x2, levels=[0.5], colors='k')
-    ax.plot(ralfven(mdot) * xifac, mdot*1e-11, linestyle='dotted', linewidth=2, color='k')
-    ax.plot(r*0.+rco, mdot*1e-11, linestyle='-.', linewidth=2, color='b')
-    ax.plot(r, mdot*0.+3.53042*1e-11, linewidth=5, color='g')
-    ax.plot(r, mdot*0.+3.53042/2.*1e-11, linewidth=5, color='g')
+    #    CF = ax.contourf(r, mdot*1e-11, log10(hr2), 30, cmap='hot_r')
+    #    fig.colorbar(CF)
+    ax.contourf(r, mdot*1e-11, mdot2d/3.53042, levels=[0.5,1.]) #, colors=['w', 'gray', 'w'])
+    ax.contour(r, mdot*1e-11, maximum(1.-prh2, r2d-(ralfven(mdot2d) * xifac)), levels=[0.0], colors='r', linestyles='solid', linewidths=5)
+    tlev=[1,2,3,5,10, 20, 30]
+    CS = ax.contour(r, mdot*1e-11, teff, colors='k', levels=tlev)
+    #    ax.clabel(CS, inline=True, inline_spacing=0.5, fontsize=14, color='k', fmt='%d', rightside_up=True, use_clabeltext=True)
+    ax.contour(r2d, mdot2d*1e-11, log10(prh2), levels=[0.], colors='k', linestyles='--', linewidths=2)
+#    ax.contour(r, mdot*1e-11, x2, levels=[.01], colors='k')
+    ax.contour(r2d, mdot2d*1e-11, x2, levels=[.5], colors='gray', linewidths=3,antialiased=True)
+#    ax.contour(r, mdot*1e-11, x2, levels=[.009], colors='k')
+    ax.plot(ralfven(mdottmp) * xifac, mdottmp*1e-11, linestyle='dotted', linewidth=2, color='k')
+    ax.plot(mdot*0.+rco, mdot*1e-11, linestyle='-.', linewidth=2, color='b')
+#    ax.plot(r, r*0.+3.53042*1e-11, linewidth=5, color='g')
+#    ax.plot(r, r*0.+3.53042/2.*1e-11, linewidth=5, color='g')
     xscale('log'); yscale('log')
     xlabel('$R$, $10^9$cm', fontsize=16) ;  ylabel(r'$\dot{M}$, M$_\odot\,{\rm yr}^{-1}$', fontsize=16)
     tick_params(labelsize=14, length=3, width=1., which='minor')
